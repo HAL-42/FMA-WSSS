@@ -1,0 +1,3 @@
+[submodule "others/CLIP-ES"]
+	path = others/CLIP-ES
+	url = git@10.13.73.233:xiaobo/CLIP-ES.git
