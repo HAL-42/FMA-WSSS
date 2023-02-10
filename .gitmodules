@@ -1,3 +1,6 @@
 [submodule "others/CLIP-ES"]
 	path = others/CLIP-ES
 	url = git@10.13.73.233:xiaobo/CLIP-ES.git
+[submodule "others/deeplab-pytorch"]
+	path = others/deeplab-pytorch
+	url = git@10.13.73.233:xiaobo/Trans-WSSS_deeplab-pytorch.git
