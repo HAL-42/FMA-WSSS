@@ -4,3 +4,6 @@
 [submodule "others/deeplab-pytorch"]
 	path = others/deeplab-pytorch
 	url = git@10.13.73.233:xiaobo/Trans-WSSS_deeplab-pytorch.git
+[submodule "others/CoOp"]
+	path = others/CoOp
+	url = https://github.com/KaiyangZhou/CoOp.git
