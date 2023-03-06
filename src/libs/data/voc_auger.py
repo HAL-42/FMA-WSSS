@@ -1,0 +1,142 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+@Author  : Xiaobo Yang
+@Contact : hal_42@zju.edu.cn
+@Time    : 2023/3/5 14:14
+@File    : voc_auger.py
+@Software: PyCharm
+@Desc    : 
+"""
+from typing import Any, Callable
+
+from math import ceil
+
+import torch
+from PIL import Image
+import numpy as np
+from addict import Dict
+
+from torchvision.transforms import ToTensor, Normalize
+
+from alchemy_cat.acplot import BGR2RGB
+from alchemy_cat.alg import size2HW
+from alchemy_cat.py_tools import PackCompose
+from alchemy_cat.data import Dataset
+import alchemy_cat.data.plugins.augers as au
+
+kPILMode = Image.BICUBIC  # 适配CLIP。
+
+
+class VOC2Auger(Dataset):
+
+    def __init__(self, dataset: Dataset,
+                 is_color_jitter: bool=True,
+                 scale_crop_method: Any=None,
+                 is_rand_mirror: bool=True,
+                 mean: tuple[float, float, float]=(0.48145466, 0.4578275, 0.40821073),
+                 std: tuple[float, float, float]=(0.26862954, 0.26130258, 0.27577711),
+                 lb_scale_factor: float | None=None):
+        self.dataset = dataset
+
+        self.is_color_jitter = is_color_jitter
+        self.scale_crop_method = scale_crop_method
+        self.is_rand_mirror = is_rand_mirror
+        self.mean = mean
+        self.std = std
+        self.lb_scale_factor = lb_scale_factor
+
+        self.rand_color_jitter = au.RandColorJitter()  # VOC参数。
+
+        self.scale_crop: Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]
+        match scale_crop_method:
+            case {'method': 'rand_range',
+                  'low_size': low_size, 'high_size': high_size, 'short_thresh': short_thresh,
+                  'crop_size': crop_size}:
+                assert short_thresh >= crop_size
+                self.scale_crop = PackCompose([
+                    au.RandRangeScale(low_size, high_size, short_thresh, align_corner=False, PIL_mode=kPILMode),
+                    au.RandCrop(crop_size)  # if crop_size is not None else au.pack_identical  # 可以不做crop。
+                ])
+            case {'method': 'no_scale'} | None:
+                self.scale_crop = au.pack_identical
+            case (int() | (int(), int())) as size:
+                h, w = size2HW(size)
+                self.scale_crop = lambda img, lb: au.scale_img_label((h, w), img, lb,
+                                                                     align_corner=False, PIL_mode=kPILMode)
+            case {'method': 'rand_resize_crop', }:
+                # TODO 让该模式支持img-label对的增强。
+                pass
+            case {'method': 'scale_align', 'aligner': aligner, 'scale_factors': scale_factors}:  # BS=1下可用。
+                self.scale_crop = au.MultiScale(scale_factors, aligner, align_corner=False, PIL_mode=kPILMode)
+            case {'method': 'fix_short', 'crop_size': crop_size}:
+                self.scale_crop = PackCompose([
+                    lambda img, lb: au.scale_img_label(crop_size / min(*img.shape[:2]),
+                                                       img, lb,
+                                                       align_corner=False, PIL_mode=kPILMode),
+                    au.RandCrop(crop_size)
+                ])
+            case _:
+                raise ValueError(f"不支持的{scale_crop_method=}。")
+
+        self.rand_mirror = au.RandMirror()
+
+        self.to_tensor = ToTensor()
+        self.normalize = Normalize(mean, std)
+
+    # @classmethod
+    # def train(cls, dataset: Dataset,
+    #           scale_crop_method: Any=None,
+    #           mean: tuple[int, int, int]=(0.48145466, 0.4578275, 0.40821073),
+    #           std: tuple[int, int, int]=(0.26862954, 0.26130258, 0.27577711),
+    #           lb_scale_factor: float | None=None):
+    #     return cls(dataset=dataset,
+    #                is_rand_mirror=True, is_color_jitter=True,
+    #                scale_crop_method=scale_crop_method,
+    #                mean=mean, std=std,
+    #                lb_scale_factor=lb_scale_factor)
+
+    @classmethod
+    def test(cls, dataset: Dataset,
+             mean: tuple[int, int, int]=(0.48145466, 0.4578275, 0.40821073),
+             std: tuple[int, int, int]=(0.26862954, 0.26130258, 0.27577711),
+             ):
+        return cls(dataset=dataset,
+                   is_rand_mirror=False, is_color_jitter=False,
+                   scale_crop_method=None,
+                   mean=mean, std=std,
+                   lb_scale_factor=None)
+
+    def get_item(self, index) -> Dict:
+        inp = self.dataset[index]
+        img_id, img, lb, cls_lb = inp.img_id, inp.img, inp.lb, inp.cls_lb
+
+        # * 色彩抖动。
+        if self.is_color_jitter:
+            img = self.rand_color_jitter(img)
+        # * 缩放。
+        img, lb = self.scale_crop(img, lb)
+        # * 随机镜像。
+        if self.is_rand_mirror:
+            img, lb = self.rand_mirror(img, lb)
+        # * 获取下采样后lb。
+        if self.lb_scale_factor is not None:
+            # 训练时，缩放裁剪后，图片尺寸是16k或16k+1，缩放后应当为k和k+1，ceil满足要求。
+            scaled_lb = au.PIL2arr(au.arr2PIL(lb).resize((ceil(lb.shape[1] / self.lb_scale_factor),
+                                                          ceil(lb.shape[0] / self.lb_scale_factor)),
+                                                         resample=Image.NEAREST))
+            scaled_lb = torch.as_tensor(scaled_lb, dtype=torch.long)
+
+        # * 测试增强。
+        img, lb = self.to_tensor(BGR2RGB(img)), torch.as_tensor(lb, dtype=torch.long)
+        img = self.normalize(img)
+
+        # * 返回结果。
+        out = Dict()
+        out.img_id, out.img, out.lb, out.cls_lb = img_id, img, lb, cls_lb
+        if self.lb_scale_factor is not None:
+            out.scaled_lb = scaled_lb
+        return out
+
+    def __len__(self):
+        return len(self.dataset)
