@@ -1,0 +1,120 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+@Author  : Xiaobo Yang
+@Contact : hal_42@zju.edu.cn
+@Time    : 2023/3/7 21:30
+@File    : cam_clips.py
+@Software: PyCharm
+@Desc    : 
+"""
+from addict import Dict
+
+import torch
+from torch import nn
+from torch.autograd import grad
+
+from alchemy_cat.alg import MaskedSoftmax
+
+from libs.clip.model import CLIP
+from .. import prompt_learners as pl
+from .. import text_encoders as te
+from .. import image_encoders as ie
+
+
+class GradCAMCLIP(nn.Module):
+    def __init__(self, clip_model: CLIP,
+                 classnames: list[str], ctx_cfg: dict,
+                 adaptive_pos_emb: bool=False,
+                 sm_fg_exist: bool=True):
+        super().__init__()
+        self.sm_fg_exist = sm_fg_exist
+
+        self.prompt_learner = pl.CoOpLearner(classnames, clip_model, **ctx_cfg)  # 根据类名，提前emb好上下文可学的prompt。
+        self.tokenized_prompts = self.prompt_learner.tokenized_prompts  # 编码后（不带上下文）的prompt。
+
+        self.text_encoder = te.EncEmb(clip_model)  # 文本编码器改为接收牌和牌嵌入。
+        # 图像编码器返回ln1、注意力图和多个投影结果。
+        self.image_encoder = ie.GetLN1(clip_model, adaptive_pos_emb=adaptive_pos_emb)
+
+        self.logit_scale = clip_model.logit_scale
+        self.dtype = clip_model.dtype
+
+        self.softmax = MaskedSoftmax(dim=-1)
+
+    def get_logits(self, img: torch.Tensor) -> Dict:
+        # * 获取文本特征。
+        prompts = self.prompt_learner()  # (G, 77, D)
+        tokenized_prompts = self.tokenized_prompts  # (G, 77)，prompt BPE码，用于定位EOS。
+        text_features = self.text_encoder(prompts, tokenized_prompts)  # (G, D)，从prompt_learner得到各类别prompt emb。
+
+        # * 获取图像特征和中间量+注意力图。
+        out = self.image_encoder(img.to(self.dtype))
+
+        # * 计算前向到softmax logits。
+        image_features = out.img_emb  # (N, D)
+
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+
+        logit_scale = self.logit_scale.exp()
+        logits = logit_scale * image_features @ text_features.t()  # (N, G) logit。
+
+        out.logits = logits
+        return out
+
+    def forward(self, img: torch.Tensor, fg_cls_lb: torch.Tensor) -> Dict:
+        # * 前向计算logits。
+        out = self.get_logits(img)
+
+        # * 计算softmax后的logits。
+        logits = out.logits
+        fg_num = fg_cls_lb.shape[1]
+        if self.sm_fg_exist:
+            mask = torch.ones_like(logits, dtype=torch.bool)
+            mask[:, :fg_num] = fg_cls_lb
+        else:
+            mask = None
+        sm_logits = self.softmax(logits, mask=mask)
+
+        # * 拿出所有正样本的logits。计算正样本logits的数量以及所在样本编号。
+        pos_logits = sm_logits[:, :fg_num][fg_cls_lb.to(torch.bool)]  # (pos_num,）取出所有正类logit。
+        pos_num = pos_logits.shape[0]  # 正类logit的数目。
+        pos_bt_idx, _ = torch.nonzero(fg_cls_lb, as_tuple=True)  # (pos_num,)的正类logit所在样本号和前景类别。
+
+        # * 求每个正类logit关于激活值的导数。
+        gcam_avt = out.gcam_avt  # (L, N, D)
+        bt_grad_fg_logits = torch.eye(pos_num,
+                                      dtype=pos_logits.dtype, device=pos_logits.device)  # (pos_num, pos_num)
+        torch._C._debug_only_display_vmap_fallback_warnings(True)  # batch grad的警告。
+        grad_gcam_avt = grad(pos_logits, gcam_avt, grad_outputs=bt_grad_fg_logits,
+                             create_graph=True, is_grads_batched=True)[0]  # (pos_num, L, G, D)
+
+        # * 找到每个正类logit的对应样本，求对应样本之patch激活值/梯度。
+        # TODO 实验avt带梯度。
+        pos_patch_avt = gcam_avt.detach()[1:, pos_bt_idx, :]  # (pos_num, L-1, D)，无梯度。
+        pos_grad_patch_avt = grad_gcam_avt[torch.arange(pos_num), 1:, pos_bt_idx, :]  # (pos_num, L-1, D)
+
+        # * 求每个正样本的CAM权重。
+        pos_gcam_weight = torch.mean(pos_grad_patch_avt, dim=1, keepdim=True)  # (pos_num, 1, D)
+
+        # * 求每个正样本的grad CAM。
+        pos_gcam = pos_patch_avt * pos_gcam_weight  # (pos_num, L-1, D)，激活值各通道乘以权重。
+        pos_gcam = torch.sum(pos_gcam, dim=2)  # (pos_num, L-1)，各通道平均。
+
+        # * 将gcam变形到标准尺寸。
+        gcam_h, gcam_w = out.emb_h, out.emb_w
+        pos_gcam = pos_gcam.view(pos_num, gcam_h, gcam_w)
+
+        out.pos_gcam = pos_gcam
+        return out
+
+    def set_mode(self, mode: 'str'):
+        match mode:
+            case 'train':
+                self.eval()
+                self.requires_grad_(False)
+                self.prompt_learner.requires_grad_(True)
+            case 'eval':
+                self.eval()
+                self.requires_grad_(False)

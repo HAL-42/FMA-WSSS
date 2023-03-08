@@ -12,7 +12,6 @@ from typing import Any, Callable
 
 from math import ceil
 
-import torch
 from PIL import Image
 import numpy as np
 from addict import Dict
@@ -24,6 +23,7 @@ from alchemy_cat.alg import size2HW
 from alchemy_cat.py_tools import PackCompose
 from alchemy_cat.data import Dataset
 import alchemy_cat.data.plugins.augers as au
+from alchemy_cat.contrib.voc import lb2cls_lb
 
 kPILMode = Image.BICUBIC  # 适配CLIP。
 
@@ -36,7 +36,7 @@ class VOC2Auger(Dataset):
                  is_rand_mirror: bool=True,
                  mean: tuple[float, float, float]=(0.48145466, 0.4578275, 0.40821073),
                  std: tuple[float, float, float]=(0.26862954, 0.26130258, 0.27577711),
-                 lb_scale_factor: float | None=None):
+                 lb_scale_factor: float | None=None, ol_cls_lb: bool=True):
         self.dataset = dataset
 
         self.is_color_jitter = is_color_jitter
@@ -45,6 +45,7 @@ class VOC2Auger(Dataset):
         self.mean = mean
         self.std = std
         self.lb_scale_factor = lb_scale_factor
+        self.ol_cls_lb = ol_cls_lb
 
         self.rand_color_jitter = au.RandColorJitter()  # VOC参数。
 
@@ -105,11 +106,13 @@ class VOC2Auger(Dataset):
                    is_rand_mirror=False, is_color_jitter=False,
                    scale_crop_method=None,
                    mean=mean, std=std,
-                   lb_scale_factor=None)
+                   lb_scale_factor=None, ol_cls_lb=False)
 
     def get_item(self, index) -> Dict:
         inp = self.dataset[index]
         img_id, img, lb, cls_lb = inp.img_id, inp.img, inp.lb, inp.cls_lb
+
+        out = Dict()
 
         # * 色彩抖动。
         if self.is_color_jitter:
@@ -125,17 +128,17 @@ class VOC2Auger(Dataset):
             scaled_lb = au.PIL2arr(au.arr2PIL(lb).resize((ceil(lb.shape[1] / self.lb_scale_factor),
                                                           ceil(lb.shape[0] / self.lb_scale_factor)),
                                                          resample=Image.NEAREST))
-            scaled_lb = torch.as_tensor(scaled_lb, dtype=torch.long)
+            out.scaled_lb = scaled_lb
+        # * 获取增强后标签中类别。
+        if self.ol_cls_lb:
+            out.ol_cls_lb = lb2cls_lb(lb)  # TODO 令该函数所有数据集通用。
 
         # * 测试增强。
-        img, lb = self.to_tensor(BGR2RGB(img)), torch.as_tensor(lb, dtype=torch.long)
+        img = self.to_tensor(BGR2RGB(img))
         img = self.normalize(img)
 
         # * 返回结果。
-        out = Dict()
         out.img_id, out.img, out.lb, out.cls_lb = img_id, img, lb, cls_lb
-        if self.lb_scale_factor is not None:
-            out.scaled_lb = scaled_lb
         return out
 
     def __len__(self):

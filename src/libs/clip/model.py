@@ -182,14 +182,16 @@ class ResidualAttentionBlock(nn.Module):
         self.ln_2 = LayerNorm(d_model)
         self.attn_mask = attn_mask
 
-    def attention(self, x: torch.Tensor):
+    def attention(self, x: torch.Tensor, need_weights: bool=False):
         self.attn_mask = self.attn_mask.to(dtype=x.dtype, device=x.device) if self.attn_mask is not None else None
-        return self.attn(x, x, x, need_weights=False, attn_mask=self.attn_mask)[0]
+        return self.attn(x, x, x, need_weights=need_weights, attn_mask=self.attn_mask)
 
-    def forward(self, x: torch.Tensor):
-        x = x + self.attention(self.ln_1(x))
+    def forward(self, x: torch.Tensor, need_weights: bool=False):
+        # x = x + self.attention(self.ln_1(x))
+        att_out, att_weight = self.attention(self.ln_1(x), need_weights)  # (L,N,E)  (N,L,L)
+        x = x + att_out
         x = x + self.mlp(self.ln_2(x))
-        return x
+        return x if not need_weights else (x, att_weight)
 
 
 class Transformer(nn.Module):
@@ -208,6 +210,7 @@ class VisionTransformer(nn.Module):
         super().__init__()
         self.input_resolution = input_resolution
         self.output_dim = output_dim
+        self.patch_size = patch_size
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=width, kernel_size=patch_size, stride=patch_size, bias=False)
 
         scale = width ** -0.5
