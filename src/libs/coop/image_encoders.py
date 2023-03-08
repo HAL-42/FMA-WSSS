@@ -85,24 +85,25 @@ class GetLN1(nn.Module):
         """完成patch-emb、位置先验。"""
         visual = self.visual
         # * 分块嵌入。
-        x = visual.conv1(x)  # shape = [*, width, grid, grid] GDHW
+        x = visual.conv1(x)  # shape = [*, width, grid, grid] NDHW
         # * 记录patch嵌入图尺寸。
         emb_h, emb_w = x.shape[2:]
         self._cache.emb_h, self._cache.emb_w = emb_h, emb_w
         # ** 拉平。
-        x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2] GD(L-1)
-        x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width] G(L-1)D
+        x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2] ND(L-1)
+        x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width] N(L-1)D
         # * 拼接上class token。
         x = torch.cat(
-            [self.class_embedding.to(x.dtype) + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device),
-             x], dim=1)  # shape = [*, grid ** 2 + 1, width] GLD
+            [visual.class_embedding.to(x.dtype) +
+             torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device),
+             x], dim=1)  # shape = [*, grid ** 2 + 1, width] NLD
         # * 加上位置嵌入。
         pos_emb = (scale_pos_emb(visual.positional_embedding, emb_h, emb_w)
                    if self.adaptive_pos_emb
                    else visual.positional_embedding)
         x = x + pos_emb.to(x.dtype)
         # * LN并返回。
-        x = self.ln_pre(x)
+        x = visual.ln_pre(x)
         return x
 
     def run_trans(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor], torch.Tensor]:
@@ -121,7 +122,7 @@ class GetLN1(nn.Module):
         att_out, att_weight = last_block.attention(gcam_avt, need_weights=True)
         att_weights.append(att_weight)  # 保存最后一层注意力图。
         x = x + att_out
-        x = x + self.mlp(self.ln_2(x))
+        x = x + last_block.mlp(last_block.ln_2(x))
 
         return x, att_weights, gcam_avt
 
@@ -129,11 +130,11 @@ class GetLN1(nn.Module):
         """完成最后的LN和投影。"""
         visual = self.visual
 
-        x = visual.ln_post(x)  # GLD
+        x = visual.ln_post(x)  # NLD
 
-        cls_emb = x[:, 0, :]  # GD，类别牌的嵌入。
-        patch_emb = x[:, 1:, :]  # G(L-1)D，所有patch的嵌入。
-        img_emb = torch.mean(patch_emb, dim=1)  # GD，图片的总嵌入。
+        cls_emb = x[:, 0, :]  # ND，类别牌的嵌入。
+        patch_emb = x[:, 1:, :]  # N(L-1)D，所有patch的嵌入。
+        img_emb = torch.mean(patch_emb, dim=1)  # ND，图片的总嵌入。
 
         if visual.proj is not None:
             cls_emb = cls_emb @ visual.proj
@@ -151,22 +152,22 @@ class GetLN1(nn.Module):
 
         # * 嵌入做attention。
         # ** 转为LGD适配trans输入。
-        x = x.permute(1, 0, 2)  # GLD -> LGD
+        x = x.permute(1, 0, 2)  # NLD -> LND
         # ** trans前向。
         x, att_weights, gcam_avt = self.run_trans(x)
         # ** 转为GLD，适配后处理.
-        x = x.permute(1, 0, 2)  # LGD -> GLD
+        x = x.permute(1, 0, 2)  # LND -> NLD
 
         # * 投影。
-        cls_emb, patch_emb, img_emb = self.run_post(x)  # GD, G(L-1)D, GD
+        cls_emb, patch_emb, img_emb = self.run_post(x)  # ND, N(L-1)D, ND
         # * 将ln1输出和分块嵌入变形到适合CAM计算。
         # emb_h, emb_w = self._cache.emb_h, self._cache.emb_w
         #
-        # gcam_avt = gcam_avt.permute(1, 2, 0)  # (L-1)GD -> GD(L-1)
-        # gcam_avt = gcam_avt.view(gcam_avt.shape[0], gcam_avt.shape[1], emb_h, emb_w)  # GD(L-1) -> GDHW
+        # gcam_avt = gcam_avt.permute(1, 2, 0)  # (L-1)ND -> ND(L-1)
+        # gcam_avt = gcam_avt.view(gcam_avt.shape[0], gcam_avt.shape[1], emb_h, emb_w)  # ND(L-1) -> NDHW
         #
-        # patch_emb = patch_emb.permute(0, 2, 1)  # G(L-1)D -> GD(L-1)
-        # patch_emb = patch_emb.view(patch_emb.shape[0], patch_emb.shape[1], emb_h, emb_w)  # GD(L-1) -> GDHW
+        # patch_emb = patch_emb.permute(0, 2, 1)  # N(L-1)D -> ND(L-1)
+        # patch_emb = patch_emb.view(patch_emb.shape[0], patch_emb.shape[1], emb_h, emb_w)  # ND(L-1) -> NDHW
 
         # * 构造输出。
         out = Dict()

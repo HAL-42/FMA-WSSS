@@ -16,16 +16,18 @@ from PIL import Image
 import numpy as np
 from addict import Dict
 
-from torchvision.transforms import ToTensor, Normalize
+from torchvision.transforms import ToTensor, Normalize, ToPILImage
 
 from alchemy_cat.acplot import BGR2RGB
 from alchemy_cat.alg import size2HW
-from alchemy_cat.py_tools import PackCompose
+from alchemy_cat.py_tools import PackCompose, Compose
 from alchemy_cat.data import Dataset
 import alchemy_cat.data.plugins.augers as au
 from alchemy_cat.contrib.voc import lb2cls_lb
 
 kPILMode = Image.BICUBIC  # 适配CLIP。
+
+__all__ = ['VOC2Auger']
 
 
 class VOC2Auger(Dataset):
@@ -97,6 +99,17 @@ class VOC2Auger(Dataset):
     #                mean=mean, std=std,
     #                lb_scale_factor=lb_scale_factor)
 
+    @property
+    def inv2PIL(self) -> Compose:
+        mean, std = self.mean, self.std
+        return Compose([
+            Normalize(
+                mean=[-mean[0] / std[0], -mean[1] / std[1], -mean[2] / std[2]],
+                std=[1 / std[0], 1 / std[1], 1 / std[2]]
+            ),
+            ToPILImage('RGB')
+        ])
+
     @classmethod
     def test(cls, dataset: Dataset,
              mean: tuple[int, int, int]=(0.48145466, 0.4578275, 0.40821073),
@@ -134,7 +147,7 @@ class VOC2Auger(Dataset):
             out.ol_cls_lb = lb2cls_lb(lb)  # TODO 令该函数所有数据集通用。
 
         # * 测试增强。
-        img = self.to_tensor(BGR2RGB(img))
+        img = self.to_tensor(BGR2RGB(img).copy())
         img = self.normalize(img)
 
         # * 返回结果。

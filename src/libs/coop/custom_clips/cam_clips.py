@@ -42,6 +42,9 @@ class GradCAMCLIP(nn.Module):
 
         self.softmax = MaskedSoftmax(dim=-1)
 
+        self._mode = 'train'
+        self.set_mode(self.mode)
+
     def get_logits(self, img: torch.Tensor) -> Dict:
         # * 获取文本特征。
         prompts = self.prompt_learner()  # (G, 77, D)
@@ -87,12 +90,12 @@ class GradCAMCLIP(nn.Module):
         bt_grad_fg_logits = torch.eye(pos_num,
                                       dtype=pos_logits.dtype, device=pos_logits.device)  # (pos_num, pos_num)
         torch._C._debug_only_display_vmap_fallback_warnings(True)  # batch grad的警告。
-        grad_gcam_avt = grad(pos_logits, gcam_avt, grad_outputs=bt_grad_fg_logits,
-                             create_graph=True, is_grads_batched=True)[0]  # (pos_num, L, G, D)
+        grad_gcam_avt = grad(pos_logits, (gcam_avt,), grad_outputs=(bt_grad_fg_logits,),
+                             create_graph=(self.mode == 'train'), is_grads_batched=True)[0]  # (pos_num, L, N, D)
 
         # * 找到每个正类logit的对应样本，求对应样本之patch激活值/梯度。
         # TODO 实验avt带梯度。
-        pos_patch_avt = gcam_avt.detach()[1:, pos_bt_idx, :]  # (pos_num, L-1, D)，无梯度。
+        pos_patch_avt = gcam_avt.detach()[1:, pos_bt_idx, :].permute(1, 0, 2)  # (L-1)PD -> (pos_num, L-1, D)，无梯度。
         pos_grad_patch_avt = grad_gcam_avt[torch.arange(pos_num), 1:, pos_bt_idx, :]  # (pos_num, L-1, D)
 
         # * 求每个正样本的CAM权重。
@@ -109,7 +112,12 @@ class GradCAMCLIP(nn.Module):
         out.pos_gcam = pos_gcam
         return out
 
+    @property
+    def mode(self):
+        return self._mode
+
     def set_mode(self, mode: 'str'):
+        self._mode = mode
         match mode:
             case 'train':
                 self.eval()
@@ -118,3 +126,6 @@ class GradCAMCLIP(nn.Module):
             case 'eval':
                 self.eval()
                 self.requires_grad_(False)
+            case _:
+                raise ValueError(f"不支持的{mode=}。")
+        return self

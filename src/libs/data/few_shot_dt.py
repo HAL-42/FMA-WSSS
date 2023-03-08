@@ -15,6 +15,8 @@ import torch
 
 from alchemy_cat.data import Dataset
 
+__all__ = ['FewShotDt']
+
 
 class FewShotDt(Dataset):
     def __init__(self, ori_dt: Dataset, shot_num: int, seed: int, except_bg: bool=False):
