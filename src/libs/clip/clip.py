@@ -91,7 +91,8 @@ def available_models() -> List[str]:
     return list(_MODELS.keys())
 
 
-def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_available() else "cpu", jit: bool = False, download_root: str = None):
+def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_available() else "cpu",
+         jit: bool = False, download_root: str = None, cpu_float: bool=True):
     """Load a CLIP model
 
     Parameters
@@ -108,6 +109,9 @@ def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_a
     download_root: str
         path to download the model files; by default, it uses "~/.cache/clip"
 
+    cpu_float: bool
+        设备为CPU时，是否将模型转为float32。
+
     Returns
     -------
     model : torch.nn.Module
@@ -117,7 +121,7 @@ def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_a
         A torchvision transform that converts a PIL image into a tensor that the returned model can take as its input
     """
     if name in _MODELS:
-        model_path = _download(_MODELS[name], download_root or os.path.join('pretrains', 'clip'))
+        model_path = _download(_MODELS[name], download_root or os.path.join('pretrains', 'CLIP'))
     elif os.path.isfile(name):
         model_path = name
     else:
@@ -137,7 +141,7 @@ def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_a
 
     if not jit:
         model = build_model(state_dict or model.state_dict()).to(device)
-        if str(device) == "cpu":
+        if str(device) == "cpu" and cpu_float:
             model.float()
         return model, _transform(model.visual.input_resolution)
 
