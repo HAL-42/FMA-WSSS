@@ -120,12 +120,13 @@ class GradCAMCLIP(nn.Module):
         self._mode = mode
         match mode:
             case 'train':
-                self.eval()
                 self.requires_grad_(False)
+                self.eval()
                 self.prompt_learner.requires_grad_(True)
+                self.prompt_learner.train()
             case 'eval':
-                self.eval()
                 self.requires_grad_(False)
+                self.eval()
             case _:
                 raise ValueError(f"不支持的{mode=}。")
         return self
