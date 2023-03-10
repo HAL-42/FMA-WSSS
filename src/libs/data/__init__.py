@@ -10,3 +10,4 @@
 """
 from .voc_dt import *
 from .voc_auger import *
+from .few_shot_dt import *

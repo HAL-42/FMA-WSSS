@@ -141,17 +141,17 @@ class VOC2Auger(Dataset):
             scaled_lb = au.PIL2arr(au.arr2PIL(lb).resize((ceil(lb.shape[1] / self.lb_scale_factor),
                                                           ceil(lb.shape[0] / self.lb_scale_factor)),
                                                          resample=Image.NEAREST))
-            out.scaled_lb = scaled_lb
+            out.scaled_lb = scaled_lb.astype(np.long)
         # * 获取增强后标签中类别。
         if self.ol_cls_lb:
-            out.ol_cls_lb = lb2cls_lb(lb)  # TODO 令该函数所有数据集通用。
+            out.ol_cls_lb = lb2cls_lb(lb).astype(np.long)  # TODO 令该函数所有数据集通用。
 
         # * 测试增强。
         img = self.to_tensor(BGR2RGB(img).copy())
         img = self.normalize(img)
 
         # * 返回结果。
-        out.img_id, out.img, out.lb, out.cls_lb = img_id, img, lb, cls_lb
+        out.img_id, out.img, out.lb, out.cls_lb = img_id, img, lb.astype(np.long), cls_lb.astype(np.long)
         return out
 
     def __len__(self):
