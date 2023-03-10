@@ -37,7 +37,7 @@ class FewShotDt(Dataset):
     def _sample_shots(self):
         # * 获得img_id - cls_label关系表。img_id来自原数据集。
         cls_labels = np.stack((self.ori_dt.id2cls_labels[img_id] for img_id in self.ori_dt.image_ids), axis=0)
-        cls_labels = (cls_labels == 1).astype(np.uint8)  # 过滤掉ignore=255标签。
+        cls_labels = (cls_labels == 1).astype(np.int32)  # 过滤掉ignore=255标签，int32类型防止sum后溢出。
         cls_labels = torch.from_numpy(cls_labels)
         cls_num = cls_labels.shape[1]
         # * 对每个类别（可能要跳过背景）分别采样shot_num个样本。
@@ -46,7 +46,8 @@ class FewShotDt(Dataset):
             if cls == 0 and self.except_bt:
                 continue
             # * 在cls类别采样shot_num个img_id。
-            shot_indices = torch.multinomial(labels := cls_labels[:, cls], min(self.shot_num, labels.sum()),
+            labels = cls_labels[:, cls]
+            shot_indices = torch.multinomial(labels.to(torch.float32), min(self.shot_num, labels.sum()),
                                              replacement=False,
                                              generator=torch.Generator('cpu').manual_seed(self.seed + cls))  # 随机隔离。
             self.cls_image_ids[cls] = [self.ori_dt.image_ids[idx] for idx in shot_indices]

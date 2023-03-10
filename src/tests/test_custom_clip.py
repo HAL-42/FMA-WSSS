@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 
-from libs.data import VOCAug2, VOC2Auger
+from libs.data import VOCAug2, VOC2Auger, FewShotDt
 from libs.clip import load
 from libs.coop.custom_clips.cam_clips import GradCAMCLIP
 
@@ -33,6 +33,7 @@ class_names = ['aeroplane', 'bicycle', 'bird avian', 'boat', 'bottle',
 
 def test_GradCAMCLIP():
     dt = VOCAug2(root='datasets', split='train_aug')
+    dt = FewShotDt(dt, 16, seed=10, except_bg=False)
     auger = VOC2Auger(dt, scale_crop_method={'method': 'rand_range',
                                              'low_size': 224, 'high_size': 368, 'short_thresh': 224,
                                              'crop_size': 224},
