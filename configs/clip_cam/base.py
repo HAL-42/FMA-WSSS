@@ -18,7 +18,7 @@ from libs import io
 from libs.loss import cam_lb
 from utils.lr_scheduler import CosineAnnealingLR, LinearLR
 
-cfg = config = Config()
+cfg = config = Config('configs/patterns/voc_names/clip_es.py')
 
 cfg.rslt_dir = ...
 cfg.rand_seed = 0  # 与随机参考使用相同的随机种子。如此相比基线多出随机部分，参考不同基线时，有不同的随机性。
@@ -80,18 +80,6 @@ cfg.io.update_out = io.gcam_clip_out_to_cls_loss  # 增加out.fg_logits。
 
 # * 设定网络。
 model = cfg.model
-
-model.fg_names = ['aeroplane', 'bicycle', 'bird avian', 'boat', 'bottle',
-                  'bus', 'car', 'cat', 'chair seat', 'cow',
-                  'diningtable', 'dog', 'horse', 'motorbike', 'person with clothes,people,human',
-                  'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor screen',
-                  ]
-model.bg_names = ['ground', 'land', 'grass', 'tree', 'building',
-                  'wall', 'sky', 'lake', 'water', 'river',
-                  'sea', 'railway', 'railroad', 'keyboard', 'helmet',
-                  'cloud', 'house', 'mountain', 'ocean', 'road',
-                  'rock', 'street', 'valley', 'bridge', 'sign',
-                  ]
 
 model.ini.clip_name = 'ViT-B/16'
 model.ini.fp32 = True
