@@ -141,7 +141,8 @@ loss_items.cam_lb.ini.detach_max = True
 loss_items.cam_lb.ini.bg_thresh = 0.
 loss_items.cam_lb.cri = IL(lambda c: cam_lb.CAMIntensityLoss(**c.loss_items.cam_lb.ini))
 loss_items.cam_lb.cal = lambda cri, inp, out: cri(out.pos_gcam, inp.fg_cls_lb, inp.lb)
-loss_items.cam_lb.weights = 1
+loss_items.cam_lb.names = ('cam_lb_fg', 'cam_lb_bg')
+loss_items.cam_lb.weights = (1., 1.)
 
 # * 开启自动混合精度。
 cfg.amp.enabled = False
