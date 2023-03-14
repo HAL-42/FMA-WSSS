@@ -25,7 +25,8 @@ class CAMIntensityLoss(nn.Module):
         self.bg_thresh = bg_thresh
         self.eps = eps
 
-    def forward(self, pos_cam: torch.Tensor, fg_cls_lb: torch.Tensor, lb: torch.Tensor) -> torch.Tensor:
+    def forward(self, pos_cam: torch.Tensor, fg_cls_lb: torch.Tensor, lb: torch.Tensor)\
+            -> tuple[torch.Tensor, torch.Tensor]:
         if pos_cam.shape[1:] != lb.shape[1:]:
             pos_cam = F.interpolate(pos_cam[:, None, :, :], size=lb.shape[1:],
                                     mode='bilinear', align_corners=False)[:, 0, :, :]
@@ -34,8 +35,9 @@ class CAMIntensityLoss(nn.Module):
         pos_lb = lb[pos_bt_idx, :, :]  # NHW -> PHW
 
         fg_mask = (pos_lb == (pos_fg_cls + 1)[:, None, None])  # 转为PHW的0，1掩码。
-        fg_mask = fg_mask.to(pos_cam.dtype)
-        bg_mask = 1 - fg_mask
+        bg_mask = (~fg_mask & (pos_lb != 255))  # 背景掩码，非前景且非忽略区域。
+        fg_mask = fg_mask.to(pos_cam.dtype)  # 转为浮点数。
+        bg_mask = bg_mask.to(pos_cam.dtype)
 
         fg_nums = fg_mask.sum(dim=(1, 2))  # P
         bg_nums = bg_mask.sum(dim=(1, 2))  # P
@@ -68,15 +70,16 @@ class CAMIntensityLoss(nn.Module):
 
         match self.reduce:
             case 'all':
-                loss = (fg_l + bg_l).mean()  # /PHW
+                all_nums = fg_nums.sum() + bg_nums.sum()
+                fg_loss, bg_loss = fg_l.sum() / all_nums, bg_l.sum() / all_nums  # /PHW
             case 'fg-bg':
-                loss = (fg_l.sum() / (fg_nums.sum() + self.eps) +
-                        bg_l.sum() / (bg_nums.sum() + self.eps)) / 2
+                fg_loss = 0.5 * fg_l.sum() / (fg_nums.sum() + self.eps)
+                bg_loss = 0.5 * bg_l.sum() / (bg_nums.sum() + self.eps)
             case 'fg-bg-per-pos':
-                loss_per_pos = (fg_l.sum(dim=(1, 2)) / (fg_nums + self.eps) +
-                                bg_l.sum(dim=(1, 2)) / (bg_nums + self.eps)) / 2  # P
-                loss = loss_per_pos.mean()
+                fg_loss_per_pos = 0.5 * fg_l.sum(dim=(1, 2)) / (fg_nums + self.eps)  # P
+                bg_loss_per_pos = 0.5 * bg_l.sum(dim=(1, 2)) / (bg_nums + self.eps)
+                fg_loss, bg_loss = fg_loss_per_pos.mean(), bg_loss_per_pos.mean()
             case _:
                 raise ValueError(f"不支持的{self.reduce=}")
 
-        return loss
+        return fg_loss, bg_loss

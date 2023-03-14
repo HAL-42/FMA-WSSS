@@ -223,6 +223,6 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
 # * 关闭Tensorboard，保存最终模型。
 writer.close()
 
-torch.save(model.module.state_dict(), osp.join(model_save_dir, 'final.pth'))
+torch.save(model.state_dict(), osp.join(model_save_dir, 'final.pth'))
 gprint(f"{get_local_time_str()}    [完成]:")
 print(f"    将模型保存在{osp.join(model_save_dir, 'final.pth')}")

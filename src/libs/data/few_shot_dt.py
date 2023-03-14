@@ -29,6 +29,10 @@ class FewShotDt(Dataset):
         self.seed = seed
         self.except_bt = except_bg
 
+        self.class_names = ori_dt.class_names
+        self.class_num = ori_dt.class_num
+        self.ignore_label = ori_dt.ignore_label
+
         self.cls_image_ids = {}
         self.image_ids = []
 

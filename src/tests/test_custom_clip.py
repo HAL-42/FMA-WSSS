@@ -53,7 +53,7 @@ def test_GradCAMCLIP():
 
     out = gcam_clip(img, ol_cls_lb[:, 1:])
 
-    pos_gcam = out.pos_gcam
+    pos_gcam = out.pos_cam
     hd_pos_gcam = F.interpolate(pos_gcam[None, ...], (224, 224), mode='bilinear')  # TODO: align
 
     loss = -hd_pos_gcam.mean()

@@ -18,7 +18,7 @@ from libs import io
 from libs.loss import cam_lb
 from utils.lr_scheduler import CosineAnnealingLR, LinearLR
 
-cfg = config = Config()
+cfg = config = Config('configs/patterns/voc_names/clip_es.py')
 
 cfg.rslt_dir = ...
 cfg.rand_seed = 0  # 与随机参考使用相同的随机种子。如此相比基线多出随机部分，参考不同基线时，有不同的随机性。
@@ -81,18 +81,6 @@ cfg.io.update_out = io.gcam_clip_out_to_cls_loss  # 增加out.fg_logits。
 # * 设定网络。
 model = cfg.model
 
-model.fg_names = ['aeroplane', 'bicycle', 'bird avian', 'boat', 'bottle',
-                  'bus', 'car', 'cat', 'chair seat', 'cow',
-                  'diningtable', 'dog', 'horse', 'motorbike', 'person with clothes,people,human',
-                  'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor screen',
-                  ]
-model.bg_names = ['ground', 'land', 'grass', 'tree', 'building',
-                  'wall', 'sky', 'lake', 'water', 'river',
-                  'sea', 'railway', 'railroad', 'keyboard', 'helmet',
-                  'cloud', 'house', 'mountain', 'ocean', 'road',
-                  'rock', 'street', 'valley', 'bridge', 'sign',
-                  ]
-
 model.ini.clip_name = 'ViT-B/16'
 model.ini.fp32 = True
 model.ini.classnames = IL(lambda c: c.model.fg_names + c.model.bg_names)
@@ -140,8 +128,9 @@ loss_items.cam_lb.ini.reduce = 'all'
 loss_items.cam_lb.ini.detach_max = True
 loss_items.cam_lb.ini.bg_thresh = 0.
 loss_items.cam_lb.cri = IL(lambda c: cam_lb.CAMIntensityLoss(**c.loss_items.cam_lb.ini))
-loss_items.cam_lb.cal = lambda cri, inp, out: cri(out.pos_gcam, inp.fg_cls_lb, inp.lb)
-loss_items.cam_lb.weights = 1
+loss_items.cam_lb.cal = lambda cri, inp, out: cri(out.pos_cam, inp.fg_cls_lb, inp.lb)
+loss_items.cam_lb.names = ('cam_lb_fg', 'cam_lb_bg')
+loss_items.cam_lb.weights = (1., 1.)
 
 # * 开启自动混合精度。
 cfg.amp.enabled = False
