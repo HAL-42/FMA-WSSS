@@ -15,4 +15,4 @@ cfg = config = Config('configs/clip_cam/base.py')
 cfg.rslt_dir = ...
 cfg.rand_seed = 0  # 与随机参考使用相同的随机种子。如此相比基线多出随机部分，参考不同基线时，有不同的随机性。
 
-cfg.loss_items.multi_cls.weights = 0.
+cfg.loss.loss_items.multi_cls.weights = 0.
