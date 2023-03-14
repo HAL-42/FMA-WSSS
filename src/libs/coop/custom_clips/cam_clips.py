@@ -109,7 +109,7 @@ class GradCAMCLIP(nn.Module):
         gcam_h, gcam_w = out.emb_h, out.emb_w
         pos_gcam = pos_gcam.view(pos_num, gcam_h, gcam_w)
 
-        out.pos_gcam = pos_gcam
+        out.pos_cam = pos_gcam
         return out
 
     @property
