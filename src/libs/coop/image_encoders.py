@@ -78,6 +78,7 @@ class GetLN1(nn.Module):
     def __init__(self, clip_model: CLIP, adaptive_pos_emb: bool=False):
         super().__init__()
         self.visual = clip_model.visual
+        self.dtype = clip_model.dtype
         self.adaptive_pos_emb = adaptive_pos_emb
         self._cache = _EncoderCache()
 
@@ -148,7 +149,7 @@ class GetLN1(nn.Module):
         self._cache.clear()
 
         # * stem前向，图片转嵌入。
-        x = self.run_stem(x)
+        x = self.run_stem(x.to(self.dtype))
 
         # * 嵌入做attention。
         # ** 转为LGD适配trans输入。

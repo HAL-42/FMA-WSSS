@@ -54,7 +54,7 @@ class CoOpLearner(nn.Module):
         print(f'Initial context: "{prompt_prefix}"')
         print(f"Number of context words (tokens): {n_ctx}")
 
-        self.ctx = nn.Parameter(ctx_vectors)  # to be optimized
+        self.ctx = nn.Parameter(ctx_vectors)  # to be optimized, 类型与clip_model一致
 
         classnames = [name.replace("_", " ") for name in classnames]
         name_lens = [len(_tokenizer.encode(name)) for name in classnames]
@@ -67,8 +67,8 @@ class CoOpLearner(nn.Module):
         # These token vectors will be saved when in save_model(),
         # but they should be ignored in load_model() as we want to use
         # those computed using the current class names
-        self.register_buffer("token_prefix", embedding[:, :1, :])  # (G, 1, D)的SOS
-        self.register_buffer("token_suffix", embedding[:, 1 + n_ctx:, :])  # (G, 60, D)的CLS+类名+EOS
+        self.register_buffer("token_prefix", embedding[:, :1, :])  # (G, 1, D)的SOS, 类型与clip_model一致
+        self.register_buffer("token_suffix", embedding[:, 1 + n_ctx:, :])  # (G, 60, D)的类名+EOS, 类型与clip_model一致
 
         self.n_cls = n_cls
         self.n_ctx = n_ctx
