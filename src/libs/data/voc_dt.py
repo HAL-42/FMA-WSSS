@@ -25,7 +25,7 @@ class VOCAug2(VOCAug):
     """
     def __init__(self, root: str = "./contrib/datasets", year="2012", split: str = "train",
                  cls_labels_type: str='seg_cls_labels'):
-        super().__init__(root, year, split)
+        super().__init__(root, year, split, PIL_read=True)
         # * 参数检查与记录。
         assert cls_labels_type in ('seg_cls_labels', 'det_cls_labels', 'ignore_diff_cls_labels')
         self.cls_labels_type = cls_labels_type
