@@ -11,6 +11,7 @@
 import argparse
 import os
 import os.path as osp
+import pickle
 import sys
 from functools import partial
 
@@ -28,6 +29,52 @@ sys.path = ['.', './src'] + sys.path  # noqa: E402
 
 from utils.eval_cams import eval_cams
 from utils.norm import min_max_norm
+
+
+def search_and_eval():
+    dt = cfg.dt.val.dt
+
+    # * 若已经有bg_method_metrics.pkl，则直接读取。
+    if osp.isfile(bg_method_metrics_pkl := osp.join(eval_dir, 'bg_method_metrics.pkl')):
+        with open(bg_method_metrics_pkl, 'rb') as f:
+            bg_method_metrics = pickle.load(f)
+    else:
+        bg_method_metrics = {}
+
+    # * 对各配置中的methods，计算其metric。
+    for bg_method in cfg.eval.seed.bg_methods:
+        if bg_method in bg_method_metrics:
+            continue
+
+        metric = eval_cams(class_num=dt.class_num,
+                           class_names=dt.class_names,
+                           cam_dir=cam_save_dir,
+                           preds_ignore_label=255,
+                           gts_dir='datasets/VOC2012/SegmentationClassAug',
+                           gts_ignore_label=dt.ignore_label,
+                           cam2pred=partial(cfg.eval.seed.cal, bg_method=bg_method),
+                           result_dir=None,
+                           importance=0,
+                           eval_individually=False,
+                           take_pred_ignore_as_a_cls=False)
+        print(f'Current mIoU: {metric.mIoU:.4f} (bg_method={bg_method})')
+        bg_method_metrics[bg_method] = metric
+
+    # * 保存method_metrics.pkl。
+    with open(bg_method_metrics_pkl, 'wb') as f:
+        pickle.dump(bg_method_metrics, f)
+
+    # * 遍历method_metrics字典，找到最好的metric。
+    bg_methods, metrics = list(bg_method_metrics.keys()), list(bg_method_metrics.values())
+
+    best_idx = np.argmax(mIoUs := [metric.mIoU for metric in metrics])
+    best_metric = metrics[best_idx]
+    best_metric.save_statistics(eval_dir, importance=0)
+
+    for bg_method, mIoU in zip(bg_methods, mIoUs):
+        print(f'mIoU: {mIoU:.4f} (bg_method={bg_method})')
+    print(f'Best mIoU: {mIoUs[best_idx]:.4f} (bg_method={bg_methods[best_idx]})')
+
 
 # * 读取命令行参数。
 parser = argparse.ArgumentParser()
@@ -54,8 +101,9 @@ device, cfg = init_env(is_cuda=True,
                        is_debug=bool(args.is_debug))
 
 # * 配置路径。
+cam_save_dir = osp.join(cfg.rslt_dir, 'cam')
 if cfg.solver.save_cam:
-    os.makedirs(cam_save_dir := osp.join(cfg.rslt_dir, 'cam'), exist_ok=True)
+    os.makedirs(cam_save_dir, exist_ok=True)
 if cfg.solver.viz_cam:
     os.makedirs(cam_viz_dir := osp.join(cfg.rslt_dir, 'viz', 'cam'), exist_ok=True)
 if cfg.solver.viz_score:
@@ -63,8 +111,11 @@ if cfg.solver.viz_score:
 if cfg.eval.enabled:
     os.makedirs(eval_dir := osp.join(cfg.rslt_dir, 'eval'), exist_ok=True)
 
-# * 准备可视化图像。
-fig = plt.figure(dpi=600)
+# * 如果只需要eval，此时即可eval并退出。
+if args.eval_only:
+    assert cfg.eval.enabled
+    search_and_eval()
+    exit(0)
 
 # * 数据集。
 val_dt = cfg.dt.val.dt
@@ -97,6 +148,9 @@ print(model, end="\n\n")
 
 model.set_mode('eval')
 model = model.to(device)
+
+# * 准备可视化图像。
+fig = plt.figure(dpi=600)
 
 idx = 0  # 用于计数推理了多少张图。
 
@@ -184,26 +238,6 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
         # * 增加处理计数。
         idx += 1
 
-# * 评估CAM。
+# * 如果只需要eval，此时即可eval并退出。
 if cfg.eval.enabled:
-    metrics = []
-    for bg_method in (bg_methods := cfg.eval.seed.bg_methods):
-        metric = eval_cams(class_num=val_dt.class_num,
-                           class_names=val_dt.class_names,
-                           cam_dir=cam_save_dir,
-                           preds_ignore_label=255,
-                           gts_dir='datasets/VOC2012/SegmentationClassAug',
-                           gts_ignore_label=val_dt.ignore_label,
-                           cam2pred=partial(cfg.eval.seed.cal, bg_method=bg_method),
-                           result_dir=None,
-                           importance=0,
-                           eval_individually=False,
-                           take_pred_ignore_as_a_cls=False)
-        metrics.append(metric)
-
-    best_idx = np.argmax(mIoUs := [metric.mIoU for metric in metrics])
-    best_metric = metrics[best_idx]
-    best_metric.save_statistics(eval_dir, importance=0)
-
-    print(f'mIoUs: {mIoUs}')
-    print(f'Best mIoU: {mIoUs[best_idx]:.4f} (bg_method={bg_methods[best_idx]})')
+    search_and_eval()
