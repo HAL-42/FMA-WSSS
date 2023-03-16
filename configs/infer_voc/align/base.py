@@ -72,10 +72,11 @@ model.resume_file = ''
 # * 设定保存的内容。
 cfg.solver.save_cam = True
 cfg.solver.viz_cam = True
-cfg.solver.viz_score = True
+cfg.solver.viz_score.resize_first = IL(lambda c: c.eval.seed.resize_first)
 cfg.solver.viz_step = 100
 
 # * 设定eval方法。
 cfg.eval.enabled = True
 cfg.eval.seed.cal = seed_argmax
 cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(2, 9)]
+cfg.eval.seed.resize_first = True  # 先阈值+归一化，还是先resize。
