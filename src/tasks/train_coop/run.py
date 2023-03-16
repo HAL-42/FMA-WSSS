@@ -195,9 +195,8 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
             writer.add_scalar(f'optim/lr/{group_name}', group['lr'], iteration + 1)
         # ** 显示损失缩放因子，并记录到Tensorboard。
         if cfg.amp.enabled:
-            print(
-                f"""    损失缩放因子：
-                scale: {scale}""")
+            print(f"    损失缩放因子：\n"
+                  f"    scale: {scale}")
             writer.add_scalar('optim/scale', scale, iteration + 1)
         # ** 将本显示周期的显存峰值记录到Tensorboard。
         writer.add_scalar(f"gpu/max_memory_allocated",
