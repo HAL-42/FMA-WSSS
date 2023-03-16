@@ -8,7 +8,7 @@
 @Software: PyCharm
 @Desc    : 
 """
-from typing import Optional, Iterable, Callable, Union, Tuple
+from typing import Optional, Iterable, Callable, Union, Tuple, Any
 import os
 from os import path as osp
 import pickle
@@ -27,7 +27,7 @@ __all__ = ['eval_cams']
 def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
               cam_dir: str, preds_ignore_label: int,
               gts_dir: str, gts_ignore_label: int,
-              cam2pred: Callable[[np.ndarray, np.ndarray], np.ndarray],
+              cam2pred: Callable[[np.ndarray, Any, np.ndarray], np.ndarray],
               result_dir: Optional[str]=None,
               gt_preprocess: Callable[[np.ndarray], np.ndarray]=lambda x: x,
               importance: int=2,
@@ -77,13 +77,14 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
         gt_file = osp.join(gts_dir, f'{img_id}.png')
 
         # Read files
-        loaded = np.load(cam_file)
-        cam, fg_cls = loaded['cam'].astype(np.float32), loaded['fg_cls'].astype(np.float32)
-        pred = cam2pred(cam, fg_cls)
-
         gt = cv2.imread(gt_file, cv2.IMREAD_GRAYSCALE)
         assert gt is not None
         gt: np.ndarray = gt_preprocess(gt)
+
+        loaded = np.load(cam_file)
+        cam, fg_cls = loaded['cam'].astype(np.float32), loaded['fg_cls'].astype(np.uint8)
+        pred = cam2pred(cam, gt.shape, fg_cls)
+
         assert pred.shape == gt.shape
 
         if take_pred_ignore_as_a_cls:
