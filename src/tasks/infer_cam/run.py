@@ -17,11 +17,10 @@ from functools import partial
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from alchemy_cat.acplot import BGR2RGB, col_all
 from alchemy_cat.contrib.tasks.wsss.viz import viz_cam
 from alchemy_cat.torch_tools import init_env, update_model_state_dict
-from cv2 import cv2
+import matplotlib
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -29,8 +28,9 @@ from frozendict import frozendict as fd
 
 sys.path = ['.', './src'] + sys.path  # noqa: E402
 
+from libs.seeding.score import cam2score
 from utils.eval_cams import eval_cams
-from utils.norm import min_max_norm
+from utils.resize import resize_cam
 
 
 def search_and_eval():
@@ -55,7 +55,8 @@ def search_and_eval():
                            preds_ignore_label=255,
                            gts_dir='datasets/VOC2012/SegmentationClassAug',
                            gts_ignore_label=dt.ignore_label,
-                           cam2pred=partial(cfg.eval.seed.cal, bg_method=bg_method),
+                           cam2pred=partial(cfg.eval.seed.cal,
+                                            bg_method=bg_method, resize_first=cfg.eval.seed.resize_first),
                            result_dir=None,
                            importance=0,
                            eval_individually=False,
@@ -102,6 +103,8 @@ device, cfg = init_env(is_cuda=True,
                        log_stdout=True,
                        reproducibility=False,
                        is_debug=bool(args.is_debug))
+print(f"{matplotlib.get_backend()=}")
+# matplotlib.use('Agg')
 
 # * 配置路径。
 cam_save_dir = osp.join(cfg.rslt_dir, 'cam')
@@ -171,7 +174,7 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
 
     # * 获取out中正类CAM pos_cam，转到CPU上，随后按照他们的batch_idx分组。
     pos_batch_idx = np.nonzero(fg_cls_lb := inp.fg_cls_lb.cpu().numpy())[0]
-    pos_cam = out.pos_cam.to(dtype=torch.float32, device='cpu').numpy()  # PHW，CPU上诸多操作不支持float16，所以转为float32。
+    pos_cam = out.pos_cam.to(dtype=torch.float32, device='cpu').numpy()  # PHW，CPU上诸多操作不支持FP16，故转为FP32。
     sample_cam = [pos_cam[pos_batch_idx == idx, :, :] for idx in range(val_loader.batch_size)]  # [样本数xHxW]
 
     sample_fg_cls = [np.nonzero(fg_cls_lb[i, :])[0] for i in range(val_loader.batch_size)]
@@ -181,23 +184,25 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
 
     # * 遍历每张图的id和CAM，保存到文件并可视化之。
     for img_id, cam, fg_cls, fg_logit in zip(inp.img_id, sample_cam, sample_fg_cls, sample_fg_logit, strict=True):
-        # * 根据img_id获取原始图像。
-        ori_inp = val_dt.get_by_img_id(img_id)
-        ori_img, ori_lb = BGR2RGB(ori_inp.img), ori_inp.lb
-        ori_h, ori_w = ori_img.shape[:2]
-
-        # * 将CAM转到原始图像的尺寸上。
-        cam = cv2.resize(cam.transpose(1, 2, 0), (ori_w, ori_h))
-        if cam.ndim == 2:
-            cam = cam[None, :, :]
-        else:
-            cam = cam.transpose(2, 0, 1)
-        # cam = F.interpolate(cam.unsqueeze(0), size=(ori_h, ori_w), mode='bilinear', align_corners=False).squeeze(0))  # [样本数xHxW]
+        # * 将CAM转到原始图像的尺寸上。✖放弃，改为储存原始尺寸的CAM。
+        # cam = cv2.resize(cam.transpose(1, 2, 0), (ori_w, ori_h))
+        # if cam.ndim == 2:
+        #     cam = cam[None, :, :]
+        # else:
+        #     cam = cam.transpose(2, 0, 1)
+        # cam = F.interpolate(cam.unsqueeze(0), size=(ori_h, ori_w), mode='bilinear',
+        #                     align_corners=False).squeeze(0))  # [样本数xHxW]
         # cam = cam.numpy().astype(np.float16)
 
         # * 保存CAM。
         if cfg.solver.save_cam:
             np.savez(osp.join(cam_save_dir, f'{img_id}.npz'), cam=cam, fg_cls=fg_cls)
+
+        # * 如果需要可视化，根据img_id获取原始图像。
+        if (cfg.solver.viz_cam or cfg.solver.viz_score) and (idx % cfg.solver.viz_step == 0):
+            ori_inp = val_dt.get_by_img_id(img_id)
+            ori_img, ori_lb = BGR2RGB(ori_inp.img), ori_inp.lb
+            ori_h, ori_w = ori_img.shape[:2]
 
         # * 可视化CAM。
         if cfg.solver.viz_cam and (idx % cfg.solver.viz_step == 0):
@@ -207,10 +212,12 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
             for cls, c in zip(fg_cls, cam, strict=True):
                 pos_names.append(f'{cfg.model.fg_names[cls]} {c.min():.1e} {c.max():.1e}')
 
+            resized_cam = resize_cam(cam, (ori_h, ori_w))
+
             viz_cam(fig=fig,
                     img_id=img_id, img=ori_img, label=ori_lb,
                     cls_in_label=np.ones(len(pos_names), dtype=np.uint8),
-                    cam=cam,
+                    cam=resized_cam,
                     cls_names=pos_names,
                     get_row_col=col_all)
 
@@ -224,8 +231,7 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
         if cfg.solver.viz_score and (idx % cfg.solver.viz_step == 0):
             fig.clf()
 
-            score = np.maximum(cam, 0)
-            score = min_max_norm(score, dim=(1, 2))
+            score = cam2score(cam, (ori_h, ori_w), cfg.solver.viz_score.resize_first)
 
             pos_names = ['dummy']
             for cls, logit in zip(fg_cls, fg_logit, strict=True):
