@@ -21,9 +21,11 @@ import torch.nn.functional as F
 from alchemy_cat.acplot import BGR2RGB, col_all
 from alchemy_cat.contrib.tasks.wsss.viz import viz_cam
 from alchemy_cat.torch_tools import init_env, update_model_state_dict
+from cv2 import cv2
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from frozendict import frozendict as fd
 
 sys.path = ['.', './src'] + sys.path  # noqa: E402
 
@@ -43,6 +45,7 @@ def search_and_eval():
 
     # * 对各配置中的methods，计算其metric。
     for bg_method in cfg.eval.seed.bg_methods:
+        bg_method = fd(bg_method)  # 将dict转换为frozendict，以便作为字典的key。
         if bg_method in bg_method_metrics:
             continue
 
@@ -168,11 +171,12 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
 
     # * 获取out中正类CAM pos_cam，转到CPU上，随后按照他们的batch_idx分组。
     pos_batch_idx = np.nonzero(fg_cls_lb := inp.fg_cls_lb.cpu().numpy())[0]
-    pos_cam = out.pos_cam.cpu()  # PHW
-
+    pos_cam = out.pos_cam.to(dtype=torch.float32, device='cpu').numpy()  # PHW，CPU上诸多操作不支持float16，所以转为float32。
     sample_cam = [pos_cam[pos_batch_idx == idx, :, :] for idx in range(val_loader.batch_size)]  # [样本数xHxW]
+
     sample_fg_cls = [np.nonzero(fg_cls_lb[i, :])[0] for i in range(val_loader.batch_size)]
-    fg_logits = out.fg_logits.detach().cpu().numpy()
+
+    fg_logits = out.fg_logits.detach().to(dtype=torch.float32, device='cpu').numpy()
     sample_fg_logit = [fg_logits[i, fg_cls_lb[i, :].astype(bool)] for i in range(val_loader.batch_size)]
 
     # * 遍历每张图的id和CAM，保存到文件并可视化之。
@@ -183,8 +187,13 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
         ori_h, ori_w = ori_img.shape[:2]
 
         # * 将CAM转到原始图像的尺寸上。
-        cam = F.interpolate(cam.unsqueeze(0), size=(ori_h, ori_w), mode='bilinear', align_corners=False).squeeze(0)
-        cam = cam.numpy().astype(np.float16)  # [样本数xHxW]
+        cam = cv2.resize(cam.transpose(1, 2, 0), (ori_w, ori_h))
+        if cam.ndim == 2:
+            cam = cam[None, :, :]
+        else:
+            cam = cam.transpose(2, 0, 1)
+        # cam = F.interpolate(cam.unsqueeze(0), size=(ori_h, ori_w), mode='bilinear', align_corners=False).squeeze(0))  # [样本数xHxW]
+        # cam = cam.numpy().astype(np.float16)
 
         # * 保存CAM。
         if cfg.solver.save_cam:

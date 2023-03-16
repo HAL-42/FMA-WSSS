@@ -69,7 +69,7 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
     print("\n================================== Eval ==================================")
     cam_file_suffixes = os.listdir(cam_dir)
     for cam_file_suffix in tqdm(cam_file_suffixes,
-                                total=len(cam_file_suffixes),
+                                total=len(cam_file_suffixes), miniters=10,
                                 desc='eval progress', unit='sample', dynamic_ncols=True):
         # Set files
         img_id = osp.splitext(cam_file_suffix)[0]
@@ -78,7 +78,7 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
 
         # Read files
         loaded = np.load(cam_file)
-        cam, fg_cls = loaded['cam'], loaded['fg_cls']
+        cam, fg_cls = loaded['cam'].astype(np.float32), loaded['fg_cls'].astype(np.float32)
         pred = cam2pred(cam, fg_cls)
 
         gt = cv2.imread(gt_file, cv2.IMREAD_GRAYSCALE)

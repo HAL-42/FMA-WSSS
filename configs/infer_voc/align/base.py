@@ -78,4 +78,4 @@ cfg.solver.viz_step = 100
 # * 设定eval方法。
 cfg.eval.enabled = True
 cfg.eval.seed.cal = seed_argmax
-cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(1, 9)]
+cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(2, 9)]
