@@ -24,7 +24,8 @@ class CoOpLearner(nn.Module):
         n_cls = len(classnames)
         # n_ctx = cfg.TRAINER.COOP.N_CTX
         # ctx_init = cfg.TRAINER.COOP.CTX_INIT
-        dtype = clip_model.dtype
+        # dtype = clip_model.dtype
+        dtype = torch.float32  # NOTE 自有参数全部为float32，因为amp不支持fp16的梯度更新。
         ctx_dim = clip_model.ln_final.weight.shape[0]
         # clip_imsize = clip_model.visual.input_resolution
         # cfg_imsize = cfg.INPUT.SIZE[0]

@@ -47,7 +47,7 @@ class GradCAMCLIP(nn.Module):
 
     def get_logits(self, img: torch.Tensor) -> Dict:
         # * 获取文本特征。
-        prompts = self.prompt_learner()  # (G, 77, D)
+        prompts = self.prompt_learner().to(self.dtype)  # (G, 77, D)
         tokenized_prompts = self.tokenized_prompts  # (G, 77)，prompt BPE码，用于定位EOS。
         text_features = self.text_encoder(prompts, tokenized_prompts)  # (G, D)，从prompt_learner得到各类别prompt emb。
 

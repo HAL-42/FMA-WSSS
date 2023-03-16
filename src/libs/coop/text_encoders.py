@@ -24,7 +24,7 @@ class EncEmb(nn.Module):
         self.dtype = clip_model.dtype
 
     def forward(self, prompts: torch.Tensor, tokenized_prompts: torch.Tensor):  # 直接输入emb好的prompts，而不是编码。
-        x = prompts + self.positional_embedding.type(self.dtype)  # (G, 77, D)
+        x = prompts.type(self.dtype) + self.positional_embedding.type(self.dtype)  # (G, 77, D)
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.transformer(x)
         x = x.permute(1, 0, 2)  # LND -> NLD
