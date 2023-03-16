@@ -31,7 +31,7 @@ def min_max_norm(arr: torch.Tensor, dim: int | tuple, detach_min_max: bool=True)
     arr_min, arr_max = arr.amin(dim=dim, keepdim=True), arr.amax(dim=dim, keepdim=True)
     if detach_min_max:
         arr_min, arr_max = arr_min.detach(), arr_max.detach()
-    arr_normed = (arr - arr_min) / (arr_max - arr_min)
+    arr_normed = (arr - arr_min) / (arr_max - arr_min + 1e-7)
 
     # * 若为numpy数组，转为numpy数组。
     if is_numpy:
