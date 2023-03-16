@@ -10,14 +10,13 @@
 """
 import numpy as np
 
-from utils.norm import min_max_norm
+from .score import cam2score
 
 
-def seed_argmax(cam: np.ndarray, fg_cls: np.ndarray, bg_method: dict) -> np.ndarray:
+def seed_argmax(cam: np.ndarray, dsize, fg_cls: np.ndarray, bg_method: dict, resize_first: bool) -> np.ndarray:
+    score = cam2score(cam, dsize=dsize, resize_first=resize_first)
+
     cls_lb = np.pad(fg_cls + 1, (1, 0), mode='constant', constant_values=0)
-
-    score = np.maximum(cam, 0)
-    score = min_max_norm(score, dim=(1, 2))
 
     match bg_method:
         case {'method': 'thresh', 'thresh': thresh}:
