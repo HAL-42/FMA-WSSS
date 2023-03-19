@@ -59,12 +59,15 @@ os.makedirs(model_save_dir := osp.join(cfg.rslt_dir, 'checkpoints'), exist_ok=Tr
 
 # * 拷贝随机参考。
 for copy_name, (src, dst) in cfg.rand_ref.rand_copy.items():
-    # TODO hard link文件。
     print(f"执行随机参考拷贝{copy_name}：\n"
           f"{src}\n"
           f"-->\n"
           f"{dst}")
-    shutil.copytree(src, dst, dirs_exist_ok=True)
+    if osp.isdir(src):
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+    else:
+        os.makedirs(osp.dirname(dst), exist_ok=True)
+        os.link(src, dst)
 print("\n")
 
 # * 数据集。

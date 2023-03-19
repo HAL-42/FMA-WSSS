@@ -33,7 +33,7 @@ dt = cfg.dt
 dt.train.ini.cls_labels_type = 'seg_cls_labels'
 dt.train.dt = IL(lambda c:
                  VOCAug2(root='datasets', split='train_aug', **c.dt.train.ini),
-                 priority=-1)
+                 priority=-10)
 
 dt.train.epoch_len = IL(lambda c:
                         len(c.dt.train.dt) // c.loader.train.batch_size,
@@ -112,7 +112,7 @@ sched.warm.ini.end_factor = IL(lambda c: c.sched.warm.ini.start_factor)
 sched.warm.ini.total_iters = IL(lambda c: c.sched.warm.warm_iters)
 sched.warm.cls = LinearLR
 
-sched.main.ini.T_max = IL(lambda c: c.solver.max_iter - sched.warm.warm_iters)
+sched.main.ini.T_max = IL(lambda c: c.solver.max_iter - c.sched.warm.warm_iters)
 sched.main.ini.eta_min = 0.
 sched.main.cls = CosineAnnealingLR
 
