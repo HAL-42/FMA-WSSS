@@ -1,7 +1,7 @@
 # ---------------------- Project Ignore ---------------------------
 # Ignore run.sh
 run.sh
-run*.sh
+*run*.sh
 
 # Ignore datasets & pretrains
 #**/data/**
