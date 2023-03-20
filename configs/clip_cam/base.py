@@ -159,11 +159,11 @@ val_cfg = cfg.val.cfg = Config(cfgs_update_at_parser=('configs/infer_voc/square/
                                                       'configs/infer_voc/patch_val.py'))
 val_cfg.model = IL(model_cfg_train2eval, priority=10)  # 验证时，使用与训练时一样的模型。
 val_cfg.io = IL(lambda c: c.io.branch_copy(), priority=10)  # 验证时，使用与训练时一样的模型IO。
-val_cfg.rslt_dir = osp.join(cfg.rslt_dir, 'val', '{}')
+val_cfg.rslt_dir = ...
 val_cfg.resume_file = ...
 
 infer_cfg = cfg.infer.cfg = Config(cfgs_update_at_parser=('configs/infer_voc/align/base.py',))
 infer_cfg.model = IL(model_cfg_train2eval, priority=10)  # 推理时，使用与训练时一样的模型。
 infer_cfg.io = IL(lambda c: c.io.branch_copy(), priority=10)  # 推理时，使用与训练时一样的模型IO。
-infer_cfg.rslt_dir = osp.join(cfg.rslt_dir, 'infer', '{}')
+infer_cfg.rslt_dir = ...
 infer_cfg.resume_file = ...
