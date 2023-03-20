@@ -8,15 +8,12 @@
 @Software: PyCharm
 @Desc    : 
 """
-import os.path as osp
-
+from alchemy_cat.py_tools import Config, IL
 from torch import nn
 
-from alchemy_cat.py_tools import Config, IL
-
 from libs import coop
-from libs.data import VOCAug2, VOC2Auger
 from libs import io
+from libs.data import VOCAug2, VOC2Auger
 from libs.loss import cam_lb
 from utils.lr_scheduler import CosineAnnealingLR, LinearLR
 
@@ -84,7 +81,7 @@ cfg.io.update_out = io.gcam_clip_out_to_cls_loss  # 增加out.fg_logits。
 model = cfg.model
 
 model.ini.clip_name = 'ViT-B/16'
-model.ini.fp32 = True
+model.ini.fp32 = False
 model.ini.classnames = IL(lambda c: c.model.fg_names + c.model.bg_names)
 model.ini.ctx_cfg.n_ctx = 16
 model.ini.ctx_cfg.ctx_init = ''
@@ -137,7 +134,7 @@ loss_items.cam_lb.names = ('cam_lb_fg', 'cam_lb_bg')
 loss_items.cam_lb.weights = (1., 1.)
 
 # * 开启自动混合精度。
-cfg.amp.enabled = False
+cfg.amp.enabled = True
 cfg.amp.scaler.ini.enabled = IL(lambda c: c.amp.enabled)
 cfg.amp.scaler.ini.init_scale = 2.**16
 
@@ -145,8 +142,8 @@ cfg.amp.scaler.ini.init_scale = 2.**16
 cfg.solver.max_iter = 17000  # ~51.5轮。
 cfg.solver.display_step = 10
 cfg.solver.loss_average_step = IL(lambda c: c.solver.display_step)
-cfg.solver.save_step = 1000
-cfg.solver.val_step = IL(lambda c: c.solver.save_step)
+cfg.solver.save_step = IL(lambda c: max(c.solver.max_iter // 10, 1000))
+cfg.solver.val_step = IL(lambda c: c.solver.save_step * 3)
 
 # * 设定测试和验证。
 def model_cfg_train2eval(c):  # noqa
