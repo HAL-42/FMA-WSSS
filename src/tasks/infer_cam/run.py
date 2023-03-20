@@ -172,14 +172,16 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
     out = cfg.io.update_out(inp, out)
 
     # * 获取out中正类CAM pos_cam，转到CPU上，随后按照他们的batch_idx分组。
+    batch_size = inp.img.shape[0]
+
     pos_batch_idx = np.nonzero(fg_cls_lb := inp.fg_cls_lb.cpu().numpy())[0]
     pos_cam = out.pos_cam.to(dtype=torch.float32, device='cpu').numpy()  # PHW，CPU上诸多操作不支持FP16，故转为FP32。
-    sample_cam = [pos_cam[pos_batch_idx == idx, :, :] for idx in range(val_loader.batch_size)]  # [样本数xHxW]
+    sample_cam = [pos_cam[pos_batch_idx == idx, :, :] for idx in range(batch_size)]  # [样本数xHxW]
 
-    sample_fg_cls = [np.nonzero(fg_cls_lb[i, :])[0] for i in range(val_loader.batch_size)]
+    sample_fg_cls = [np.nonzero(fg_cls_lb[i, :])[0] for i in range(batch_size)]
 
     fg_logits = out.fg_logits.detach().to(dtype=torch.float32, device='cpu').numpy()
-    sample_fg_logit = [fg_logits[i, fg_cls_lb[i, :].astype(bool)] for i in range(val_loader.batch_size)]
+    sample_fg_logit = [fg_logits[i, fg_cls_lb[i, :].astype(bool)] for i in range(batch_size)]
 
     # * 遍历每张图的id和CAM，保存到文件并可视化之。
     for img_id, cam, fg_cls, fg_logit in zip(inp.img_id, sample_cam, sample_fg_cls, sample_fg_logit, strict=True):
