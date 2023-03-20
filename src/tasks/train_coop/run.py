@@ -95,7 +95,7 @@ inf_train_loader = inf_loader(train_loader)
 
 # * 分类模型。
 model, get_state, get_named_param_groups = cfg.model.cls(**cfg.model.ini)
-cal_model = cfg.model.train_cal
+cal_model = cfg.model.cal
 
 if osp.isfile(start_model := osp.join(model_save_dir, 'start.pth')):  # 若存在，认为是参考，载入。
     update_model_state_dict(model, torch.load(start_model, map_location='cpu'), verbosity=3)

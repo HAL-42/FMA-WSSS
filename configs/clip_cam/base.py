@@ -92,7 +92,9 @@ model.ini.adaptive_pos_emb = False
 model.ini.sm_fg_exist = True
 model.cls = coop.grad_cam_clip
 
-model.train_cal = lambda m, inp: m(inp.img, inp.fg_cls_lb)
+def model_cal(m, inp):  # noqa
+    return m(inp.img, inp.fg_cls_lb)
+model.cal = model_cal  # noqa
 
 # * 设定优化器。
 opt = cfg.opt
