@@ -67,6 +67,8 @@ for copy_name, (src, dst) in cfg.rand_ref.rand_copy.items():
         shutil.copytree(src, dst, dirs_exist_ok=True)
     else:
         os.makedirs(osp.dirname(dst), exist_ok=True)
+        if osp.isfile(dst):
+            os.remove(dst)
         os.link(src, dst)
 print("\n")
 
@@ -218,11 +220,14 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
     if (iteration + 1) % cfg.solver.val_step == 0:
         gprint("\n================================== Validation ==================================")
         torch.cuda.empty_cache()  # 尽量释放显存给推理。
-        val_cfg = cfg.val.cfg
-        val_cfg.rslt_dir = val_cfg.rslt_dir.format(f'iter-{iteration + 1}')
+        val_cfg = cfg.val.cfg.unfreeze()
         val_cfg.resume_file = osp.join(model_save_dir, f'iter-{iteration + 1}.pth')
-        with open(cfg_pkl := osp.join('configs', val_cfg.rslt_dir, 'cfg.pkl'), 'wb') as pkl_f:
-            os.makedirs(osp.dirname(cfg_pkl), exist_ok=True)
+
+        cfg_pkl = osp.join(cfg.rslt_dir.replace('experiment/', 'configs/'),
+                           'val', f'iter-{iteration + 1}', 'cfg.pkl')
+        os.makedirs(osp.dirname(cfg_pkl), exist_ok=True)
+
+        with open(cfg_pkl, 'wb') as pkl_f:
             pickle.dump(val_cfg, pkl_f)
         subprocess.run([sys.executable, 'src/tasks/infer_cam/run.py',
                         '-c', cfg_pkl], check=False)
@@ -238,11 +243,14 @@ print(f"    将模型保存在{model_file}")
 # * 推理最终模型。
 gprint("\n================================== Inference ===================================")
 torch.cuda.empty_cache()  # 尽量释放显存给推理。
-infer_cfg = cfg.infer.cfg
-infer_cfg.rslt_dir = infer_cfg.rslt_dir.format('final')
+infer_cfg = cfg.infer.cfg.unfreeze()
 infer_cfg.resume_file = osp.join(model_save_dir, 'final.pth')
-with open(cfg_pkl := osp.join('configs', infer_cfg.rslt_dir, 'cfg.pkl'), 'wb') as pkl_f:
-    os.makedirs(osp.dirname(cfg_pkl), exist_ok=True)
+
+cfg_pkl = osp.join(cfg.rslt_dir.replace('experiment/', 'configs/'),
+                   'infer', f'final', 'cfg.pkl')
+os.makedirs(osp.dirname(cfg_pkl), exist_ok=True)
+
+with open(cfg_pkl, 'wb') as pkl_f:
     pickle.dump(infer_cfg, pkl_f)
 subprocess.run([sys.executable, 'src/tasks/infer_cam/run.py',
                 '-c', cfg_pkl], check=False)
