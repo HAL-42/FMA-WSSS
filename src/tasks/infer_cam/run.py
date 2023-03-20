@@ -12,19 +12,20 @@ import argparse
 import os
 import os.path as osp
 import pickle
+import shutil
 import sys
 from functools import partial
 
+import matplotlib
 import numpy as np
 import torch
 from alchemy_cat.acplot import BGR2RGB, col_all
 from alchemy_cat.contrib.tasks.wsss.viz import viz_cam
 from alchemy_cat.torch_tools import init_env, update_model_state_dict
-import matplotlib
+from frozendict import frozendict as fd
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from frozendict import frozendict as fd
 
 sys.path = ['.', './src'] + sys.path  # noqa: E402
 
@@ -107,9 +108,7 @@ print(f"{matplotlib.get_backend()=}")
 # matplotlib.use('Agg')
 
 # * 配置路径。
-cam_save_dir = osp.join(cfg.rslt_dir, 'cam')
-if cfg.solver.save_cam:
-    os.makedirs(cam_save_dir, exist_ok=True)
+os.makedirs(cam_save_dir := osp.join(cfg.rslt_dir, 'cam'), exist_ok=True)  # 总是暂存/长存CAM。不存（只viz）的可能很小。
 if cfg.solver.viz_cam:
     os.makedirs(cam_viz_dir := osp.join(cfg.rslt_dir, 'viz', 'cam'), exist_ok=True)
 if cfg.solver.viz_score:
@@ -146,7 +145,7 @@ epoch_val_loader = iter(val_loader)
 
 # * 分类模型。
 model, _, _ = cfg.model.cls(**cfg.model.ini)
-cal_model = cfg.model.val_cal
+cal_model = cfg.model.cal
 
 if resume_file := cfg.model.resume_file:
     update_model_state_dict(model, torch.load(resume_file, map_location='cpu'), verbosity=3)
@@ -195,8 +194,7 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
         # cam = cam.numpy().astype(np.float16)
 
         # * 保存CAM。
-        if cfg.solver.save_cam:
-            np.savez(osp.join(cam_save_dir, f'{img_id}.npz'), cam=cam, fg_cls=fg_cls)
+        np.savez(osp.join(cam_save_dir, f'{img_id}.npz'), cam=cam, fg_cls=fg_cls)
 
         # * 如果需要可视化，根据img_id获取原始图像。
         if (cfg.solver.viz_cam or cfg.solver.viz_score) and (idx % cfg.solver.viz_step == 0):
@@ -256,3 +254,7 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
 # * 如果只需要eval，此时即可eval并退出。
 if cfg.eval.enabled:
     search_and_eval()
+
+# * 如果不用保存cam，则删除CAM保存目录。
+if not cfg.solver.save_cam:
+    shutil.rmtree(cam_save_dir)

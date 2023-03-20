@@ -66,7 +66,7 @@ model.ini.adaptive_pos_emb = True
 model.ini.sm_fg_exist = True
 model.cls = coop.grad_cam_clip
 
-model.val_cal = lambda m, inp: m(inp.img, inp.fg_cls_lb)
+model.cal = lambda m, inp: m(inp.img, inp.fg_cls_lb)
 model.resume_file = ''
 
 # * 设定保存的内容。
