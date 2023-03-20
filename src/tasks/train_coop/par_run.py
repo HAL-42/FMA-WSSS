@@ -8,9 +8,10 @@
 @Software: PyCharm
 @Desc    : 
 """
+import argparse
 import os
 import os.path as osp
-import argparse
+import pickle
 import subprocess
 import sys
 from typing import Dict, Any
@@ -41,7 +42,9 @@ class TrainCoOp(Cfg2TuneRunner):
                            check=False, env=env_with_current_cuda)
 
     def gather_metric(self, cfg_rslt_dir, run_rslt, param_comb) -> Dict[str, Any]:
-        raise NotImplementedError
+        with open(osp.join(cfg_rslt_dir, 'infer', 'final', 'eval', 'statistics.pkl'), 'rb') as pkl_f:
+            metrics = pickle.load(pkl_f)
+        return {name: metrics[name] for name in self.metric_names}
 
 
 parser = argparse.ArgumentParser()
