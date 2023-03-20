@@ -16,4 +16,4 @@ cfg = config = Config('configs/infer_voc/base.py')
 cfg.auger.val.ini.scale_crop_method = 320
 
 # * 因为输入尺寸相同，batch可以不为1。
-cfg.loader.val.batch_size = 32
+cfg.loader.val.batch_size = 16

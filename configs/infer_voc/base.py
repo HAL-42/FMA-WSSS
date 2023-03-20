@@ -78,5 +78,5 @@ cfg.solver.viz_step = 100
 # * 设定eval方法。
 cfg.eval.enabled = True
 cfg.eval.seed.cal = seed_argmax
-cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(2, 9)]
+cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(4, 11)]
 cfg.eval.seed.resize_first = True  # 先阈值+归一化，还是先resize。
