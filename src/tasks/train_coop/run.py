@@ -11,19 +11,19 @@
 import argparse
 import os
 import os.path as osp
+import pickle
 import shutil
+import subprocess
 import sys
 from collections import defaultdict
 
-from tqdm import tqdm
-
 import torch
+from alchemy_cat.py_tools import get_local_time_str, gprint, yprint, meow, set_rand_seed
+from alchemy_cat.torch_tools import init_env, MovingAverageValueTracker, update_model_state_dict, RNGCacher
 from torch.cuda import amp
 from torch.utils.data import RandomSampler, DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
-from alchemy_cat.py_tools import get_local_time_str, gprint, yprint, meow, set_rand_seed
-from alchemy_cat.torch_tools import init_env, MovingAverageValueTracker, update_model_state_dict, RNGCacher
+from tqdm import tqdm
 
 sys.path = ['.', './src'] + sys.path  # noqa: E402
 
@@ -210,21 +210,40 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
 
     # * 保存训练中间模型。
     if (iteration + 1) % cfg.solver.save_step == 0:
-        torch.save(get_state(model), osp.join(model_save_dir, f'iter-{iteration + 1}.pth'))
+        torch.save(get_state(model), model_file := osp.join(model_save_dir, f'iter-{iteration + 1}.pth'))
         gprint(f"{get_local_time_str()}    [{iteration + 1}/{cfg.solver.max_iter}]: ")
-        print(f"    将模型保存在{osp.join(model_save_dir, f'RGB-HHA-{iteration + 1}.pth')}")
+        print(f"    将模型保存在{model_file}")
 
     # * 验证性能。
-    # if (iteration + 1) % cfg.solver.val_step == 0:
-    #     with ValidationEnv(model) as val_model:
-    #         gprint("\n================================== Validation ==================================")
-    #         ...
-    #         gprint("\n================================ Validation End ================================")
-    #         model.set_mode('train')
+    if (iteration + 1) % cfg.solver.val_step == 0:
+        gprint("\n================================== Validation ==================================")
+        torch.cuda.empty_cache()  # 尽量释放显存给推理。
+        val_cfg = cfg.val.cfg
+        val_cfg.rslt_dir = val_cfg.rslt_dir.format(f'iter-{iteration + 1}')
+        val_cfg.resume_file = osp.join(model_save_dir, f'iter-{iteration + 1}.pth')
+        with open(cfg_pkl := osp.join('configs', val_cfg.rslt_dir, 'cfg.pkl'), 'wb') as pkl_f:
+            os.makedirs(osp.dirname(cfg_pkl), exist_ok=True)
+            pickle.dump(val_cfg, pkl_f)
+        subprocess.run([sys.executable, 'src/tasks/infer_cam/run.py',
+                        '-c', cfg_pkl], check=False)
+        gprint("\n================================ Validation End ================================")
 
 # * 关闭Tensorboard，保存最终模型。
 writer.close()
 
-torch.save(model.state_dict(), osp.join(model_save_dir, 'final.pth'))
+torch.save(model.state_dict(), model_file := osp.join(model_save_dir, 'final.pth'))
 gprint(f"{get_local_time_str()}    [完成]:")
-print(f"    将模型保存在{osp.join(model_save_dir, 'final.pth')}")
+print(f"    将模型保存在{model_file}")
+
+# * 推理最终模型。
+gprint("\n================================== Inference ===================================")
+torch.cuda.empty_cache()  # 尽量释放显存给推理。
+infer_cfg = cfg.infer.cfg
+infer_cfg.rslt_dir = infer_cfg.rslt_dir.format('final')
+infer_cfg.resume_file = osp.join(model_save_dir, 'final.pth')
+with open(cfg_pkl := osp.join('configs', infer_cfg.rslt_dir, 'cfg.pkl'), 'wb') as pkl_f:
+    os.makedirs(osp.dirname(cfg_pkl), exist_ok=True)
+    pickle.dump(infer_cfg, pkl_f)
+subprocess.run([sys.executable, 'src/tasks/infer_cam/run.py',
+                '-c', cfg_pkl], check=False)
+gprint("\n================================ Inference End =================================")
