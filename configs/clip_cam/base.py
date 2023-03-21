@@ -17,7 +17,7 @@ from libs.data import VOCAug2, VOC2Auger
 from libs.loss import cam_lb
 from utils.lr_scheduler import CosineAnnealingLR, LinearLR
 
-cfg = config = Config('configs/patterns/voc_names/clip_es.py', 'configs/patterns/seg_metrics/cls_m_IoU,pra.py')
+cfg = config = Config('configs/patterns/voc_names/clip_es.py')
 
 cfg.rslt_dir = ...
 cfg.rand_seed = 0  # 与随机参考使用相同的随机种子。如此相比基线多出随机部分，参考不同基线时，有不同的随机性。

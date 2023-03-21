@@ -10,7 +10,8 @@
 """
 from alchemy_cat.py_tools import Cfg2Tune, Param2Tune
 
-cfg = config = Cfg2Tune(cfgs_update_at_parser=('configs/clip_cam/调GCAM损/l2_only,amp,调fb权/base.py',))
+cfg = config = Cfg2Tune('configs/patterns/seg_metrics/cls_m_IoU,pra.py',
+                        cfgs_update_at_parser=('configs/clip_cam/调GCAM损/l2_only,amp,调fb权/base.py',))
 
 cfg.rslt_dir = ...
 
