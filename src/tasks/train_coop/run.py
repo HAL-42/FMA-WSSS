@@ -221,7 +221,7 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
         gprint("\n================================== Validation ==================================")
         torch.cuda.empty_cache()  # 尽量释放显存给推理。
         val_cfg = cfg.val.cfg.unfreeze()
-        val_cfg.resume_file = osp.join(model_save_dir, f'iter-{iteration + 1}.pth')
+        val_cfg.model.resume_file = osp.join(model_save_dir, f'iter-{iteration + 1}.pth')
 
         cfg_pkl = osp.join(cfg.rslt_dir.replace('experiment/', 'configs/'),
                            'val', f'iter-{iteration + 1}', 'cfg.pkl')
@@ -236,7 +236,7 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
 # * 关闭Tensorboard，保存最终模型。
 writer.close()
 
-torch.save(model.state_dict(), model_file := osp.join(model_save_dir, 'final.pth'))
+torch.save(get_state(model), model_file := osp.join(model_save_dir, 'final.pth'))
 gprint(f"{get_local_time_str()}    [完成]:")
 print(f"    将模型保存在{model_file}")
 
@@ -244,7 +244,7 @@ print(f"    将模型保存在{model_file}")
 gprint("\n================================== Inference ===================================")
 torch.cuda.empty_cache()  # 尽量释放显存给推理。
 infer_cfg = cfg.infer.cfg.unfreeze()
-infer_cfg.resume_file = osp.join(model_save_dir, 'final.pth')
+infer_cfg.model.resume_file = osp.join(model_save_dir, 'final.pth')
 
 cfg_pkl = osp.join(cfg.rslt_dir.replace('experiment/', 'configs/'),
                    'infer', f'final', 'cfg.pkl')
