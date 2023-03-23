@@ -15,6 +15,7 @@ import pickle
 import shutil
 import subprocess
 import sys
+import warnings
 from collections import defaultdict
 
 import torch
@@ -231,6 +232,13 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
             pickle.dump(val_cfg, pkl_f)
         subprocess.run([sys.executable, 'src/tasks/infer_cam/run.py',
                         '-c', cfg_pkl], check=False)
+        try:
+            with open(osp.join(cfg.rslt_dir, 'val', f'iter-{iteration + 1}', 'eval', 'statistics.pkl'), 'rb') as pkl_f:
+                metrics = pickle.load(pkl_f)
+        except Exception:
+            warnings.warn("无法读取验证性能统计数据。")
+        else:
+            writer.add_scalar(f"val/mIoU", metrics['mIoU'], iteration + 1)
         gprint("\n================================ Validation End ================================")
 
 # * 关闭Tensorboard，保存最终模型。
