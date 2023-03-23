@@ -78,7 +78,7 @@ class GradCAMCLIP(nn.Module):
             mask[:, :fg_num] = fg_cls_lb
         else:
             mask = None
-        sm_logits = self.softmax(logits, mask=mask)
+        out.sm_logits = sm_logits = self.softmax(logits, mask=mask)
 
         # * 拿出所有正样本的logits。计算正样本logits的数量以及所在样本编号。
         pos_logits = sm_logits[:, :fg_num][fg_cls_lb.to(torch.bool)]  # (pos_num,）取出所有正类logit。

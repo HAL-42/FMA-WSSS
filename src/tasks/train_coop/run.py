@@ -111,8 +111,19 @@ print(model, end="\n\n")
 model.set_mode('train')
 model = model.to(device)
 
+named_param_groups = {}  # 用于优化器的参数组。
+
+# * 损失函数。
+loss_items = cfg.loss.loss_items
+print(loss_items, end="\n\n")
+for item_name, loss_item in loss_items.items():
+    if isinstance(cri := loss_item.cri, torch.nn.Module):
+        cri.to(device)
+    if hasattr(cri, 'get_named_param_groups'):
+        named_param_groups.update(pg := cri.get_named_param_groups())
+
 # * 优化器。
-named_param_groups = get_named_param_groups(model, **cfg.opt.get_pg.ini)
+named_param_groups.update(get_named_param_groups(model, **cfg.opt.get_pg.ini))
 opt = torch.optim.SGD(params=list(named_param_groups.values()),
                       lr=cfg.opt.base_lr, momentum=cfg.opt.momentum)
 print(opt, end="\n\n")
@@ -124,10 +135,6 @@ sched = SequentialLR(opt, [warm_sched, main_sched], [cfg.sched.warm.warm_iters])
 print(warm_sched)
 print(main_sched)
 print(sched, end="\n\n")
-
-# * 损失函数。
-loss_items = cfg.loss.loss_items
-print(loss_items, end="\n\n")
 
 # * 损失放大器。
 scaler = amp.GradScaler(**cfg.amp.scaler.ini)
@@ -151,6 +158,8 @@ meow.writer = writer = SummaryWriter(osp.join(cfg.rslt_dir, 'summary'), purge_st
 
 for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
                       desc='训练', unit='批次', miniters=cfg.solver.display_step, bar_format='{l_bar}{bar}{r_bar}\n'):
+    meow.iteration = iteration  # 在全局变量中记录当前迭代次数。
+
     # * 获取新一个批次数据。
     inp = next(inf_train_loader)
     inp = cfg.io.update_inp(inp)
@@ -204,6 +213,12 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
             print(f"    损失缩放因子：\n"
                   f"    scale: {scale}")
             writer.add_scalar('optim/scale', scale, iteration + 1)
+        # ** 显示loss中间量。
+        print("    中间量：")
+        for item_name, loss_item in loss_items.items():
+            if hasattr(cri := loss_item.cri, 'display'):
+                print(f"    {item_name}:")
+                cri.display(iteration, writer)
         # ** 将本显示周期的显存峰值记录到Tensorboard。
         writer.add_scalar(f"gpu/max_memory_allocated",
                           torch.cuda.max_memory_allocated() / 1024 ** 3, iteration + 1)
