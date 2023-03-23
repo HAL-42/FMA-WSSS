@@ -29,7 +29,7 @@ def _get_coop_state(model: nn.Module) -> dict:
 
 
 def _get_coop_sgd_named_param_groups(model: nn.Module, lr: float, weight_decay: float) -> dict[str, dict]:
-    named_param_groups = {'new': {'params': list(model.parameters()),
+    named_param_groups = {'new': {'params': [p for n, p in model.named_parameters() if 'prompt_learner' in n],
                                   'lr': lr,
                                   'weight_decay': weight_decay
                                   }}
