@@ -26,8 +26,7 @@ def min_max_norm(arr: torch.Tensor | np.ndarray, dim: int | tuple, detach_min_ma
         归一化后的张量。
     """
     # * 若为numpy数组，转为torch张量。
-    if isinstance(arr, np.ndarray):
-        is_numpy = True
+    if is_numpy := isinstance(arr, np.ndarray):
         arr = torch.from_numpy(arr)
 
     # * 应用阈值。

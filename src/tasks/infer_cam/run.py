@@ -15,6 +15,7 @@ import pickle
 import shutil
 import sys
 from functools import partial
+import uuid
 
 import matplotlib
 import numpy as np
@@ -52,7 +53,7 @@ def search_and_eval():
 
         metric = eval_cams(class_num=dt.class_num,
                            class_names=dt.class_names,
-                           cam_dir=cam_save_dir,
+                           cam_dir=cam_cache_dir,
                            preds_ignore_label=255,
                            gts_dir='datasets/VOC2012/SegmentationClassAug',
                            gts_ignore_label=dt.ignore_label,
@@ -108,7 +109,7 @@ print(f"{matplotlib.get_backend()=}")
 # matplotlib.use('Agg')
 
 # * 配置路径。
-os.makedirs(cam_save_dir := osp.join(cfg.rslt_dir, 'cam'), exist_ok=True)  # 总是暂存/长存CAM。不存（只viz）的可能很小。
+os.makedirs(cam_cache_dir := osp.join('/tmp', uuid.uuid4().hex), exist_ok=True)  # 总是暂存/长存CAM。不存（只viz）的可能很小。
 if cfg.solver.viz_cam:
     os.makedirs(cam_viz_dir := osp.join(cfg.rslt_dir, 'viz', 'cam'), exist_ok=True)
 if cfg.solver.viz_score:
@@ -196,7 +197,7 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
         # cam = cam.numpy().astype(np.float16)
 
         # * 保存CAM。
-        np.savez(osp.join(cam_save_dir, f'{img_id}.npz'), cam=cam, fg_cls=fg_cls)
+        np.savez(osp.join(cam_cache_dir, f'{img_id}.npz'), cam=cam, fg_cls=fg_cls)
 
         # * 如果需要可视化，根据img_id获取原始图像。
         if (cfg.solver.viz_cam or cfg.solver.viz_score) and (idx % cfg.solver.viz_step == 0):
@@ -255,8 +256,13 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
 
 # * 如果只需要eval，此时即可eval并退出。
 if cfg.eval.enabled:
+    torch.cuda.empty_cache()
     search_and_eval()
 
 # * 如果不用保存cam，则删除CAM保存目录。
 if not cfg.solver.save_cam:
-    shutil.rmtree(cam_save_dir)
+    shutil.rmtree(cam_cache_dir)
+else:
+    if osp.isdir(cam_save_dir := osp.join(cfg.rslt_dir, 'cam')):
+        shutil.rmtree(cam_save_dir)
+    shutil.move(cam_cache_dir, cam_save_dir)

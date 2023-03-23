@@ -14,7 +14,7 @@ from alchemy_cat.py_tools import Config, IL
 from libs import coop
 from libs import io
 from libs.data import VOCAug2, VOC2Auger
-from libs.seeding.seed_argmax import seed_argmax
+from libs.seeding.seed_argmax import seed_argmax_cuda
 
 cfg = config = Config('configs/patterns/voc_names/clip_es.py')
 
@@ -77,6 +77,6 @@ cfg.solver.viz_step = 100
 
 # * 设定eval方法。
 cfg.eval.enabled = True
-cfg.eval.seed.cal = seed_argmax
+cfg.eval.seed.cal = seed_argmax_cuda
 cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(4, 11)]
 cfg.eval.seed.resize_first = True  # 先阈值+归一化，还是先resize。
