@@ -32,7 +32,7 @@ dt.few_shot.epoch_len = IL(lambda c:
                            priority=-1)
 
 # * 只开启L2损失。
-cfg.loss.loss_items.cam_lb.ini.loss_type = 'l2'
+# cfg.loss.loss_items.cam_lb.ini.loss_type = 'l2'
 cfg.loss.loss_items.multi_cls.weights = 0.
 
 # * 开启AMP。
