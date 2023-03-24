@@ -46,6 +46,8 @@ class MultiLabelSharpness(nn.Module):
         pos_mask = cls_lb == 1
 
         valid_mask = (pos_num := pos_mask.sum(dim=1, dtype=torch.int32)) >= 2
+        if torch.all(~valid_mask):  # 无正样本
+            return 0 * S.sum()
         valid_pos_mask = pos_mask[valid_mask, :]
         valid_pos_num = pos_num[valid_mask]
         valid_S = S[valid_mask, :]
