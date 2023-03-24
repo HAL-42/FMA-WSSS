@@ -14,4 +14,7 @@ cfg = config = Config('configs/infer_voc/align/base.py')
 
 cfg.rslt_dir = ...
 
-cfg.model.resume_file = 'experiment/clip_cam/debug_l2/checkpoints/iter-17000.pth'
+cfg.model.resume_file = 'experiment/clip_cam/调GCAM损/l1_only,amp/checkpoints/final.pth'
+
+cfg.solver.viz_cam = False
+cfg.solver.viz_score = False

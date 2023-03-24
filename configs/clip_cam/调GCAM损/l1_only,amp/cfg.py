@@ -15,4 +15,8 @@ cfg = config = Config('configs/clip_cam/base.py')
 cfg.rslt_dir = ...
 cfg.rand_seed = 0  # 与随机参考使用相同的随机种子。如此相比基线多出随机部分，参考不同基线时，有不同的随机性。
 
-cfg.loss.loss_items.cam_lb.ini.loss_type = 'l2'
+# cfg.loss.loss_items.cam_lb.ini.loss_type = 'l2'
+cfg.loss.loss_items.multi_cls.weights = 0.
+
+cfg.model.ini.fp32 = False  # CLIP参数为FP16，确保准确的特征编码。
+cfg.amp.enabled = True  # 使用AMP确保正确梯度。

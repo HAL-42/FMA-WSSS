@@ -6,7 +6,7 @@
 @Time    : 2023/3/10 12:16
 @File    : cfg.py
 @Software: PyCharm
-@Desc    : 参考configs/clip_cam/调GCAM损/l2_only,amp/cfg.py。
+@Desc    : 参考configs/clip_cam/调GCAM损/l1_only,amp/cfg.py。
 """
 from alchemy_cat.py_tools import Config
 
