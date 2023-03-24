@@ -4,7 +4,7 @@
 @Author  : Xiaobo Yang
 @Contact : hal_42@zju.edu.cn
 @Time    : 2023/3/22 12:30
-@File    : l2_only,amp.py
+@File    : coop_ctx-M=16-V1.py
 @Software: PyCharm
 @Desc    : 
 """
@@ -16,7 +16,7 @@ cfg = config = Config()
 
 # * 设定随机参考。
 cfg.rand_seed = 0
-cfg.rand_ref.ref_dir = 'experiment/clip_cam/调GCAM损/l2_only,amp'
+cfg.rand_ref.ref_dir = 'pretrains/rand_ref'
 cfg.rand_ref.rand_copy = IL(lambda c:
-                            {'initial context': (osp.join(c.rand_ref.ref_dir, 'checkpoints/start.pth'),
+                            {'initial context': (osp.join(c.rand_ref.ref_dir, 'coop_ctx/M=16/V1.pth'),
                                                  osp.join(c.rslt_dir, 'checkpoints/start.pth'))})

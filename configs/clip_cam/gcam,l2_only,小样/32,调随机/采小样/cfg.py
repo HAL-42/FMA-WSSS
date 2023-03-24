@@ -14,7 +14,7 @@ cfg = config = Cfg2Tune('configs/patterns/seg_metrics/cls_m_IoU,pra.py',
                         cfgs_update_at_parser=('configs/clip_cam/base.py',
                                                'configs/clip_cam/_patches/few_shot.py',
                                                'configs/clip_cam/_patches/l2_only.py',
-                                               'configs/clip_cam/_patches/ref/l2_only,amp.py'))
+                                               'configs/clip_cam/_patches/ref/coop_ctx-M=16-V1.py'))
 
 cfg.rslt_dir = ...
 

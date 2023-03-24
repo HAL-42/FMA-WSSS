@@ -12,7 +12,7 @@ from alchemy_cat.py_tools import Config, IL
 
 from libs.loss.multi_cls.su_loss import MultiLabelSuLoss
 
-cfg = config = Config('configs/clip_cam/base.py', 'configs/clip_cam/_patches/ref/l2_only,amp.py')
+cfg = config = Config('configs/clip_cam/base.py', 'configs/clip_cam/_patches/ref/coop_ctx-M=16-V1.py')
 
 cfg.rslt_dir = ...
 cfg.rand_seed = 0  # 与随机参考使用相同的随机种子。如此相比基线多出随机部分，参考不同基线时，有不同的随机性。

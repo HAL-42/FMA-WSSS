@@ -8,21 +8,13 @@
 @Software: PyCharm
 @Desc    : 
 """
-import os.path as osp
-
 from alchemy_cat.py_tools import Config, IL
 
 from libs.data import FewShotDt
 
-cfg = config = Config('configs/clip_cam/base.py')
+cfg = config = Config('configs/clip_cam/base.py', 'configs/clip_cam/_patches/ref/coop_ctx-M=16-V1.py')
 
 cfg.rslt_dir = ...
-
-# * 设定随机参考。
-cfg.rand_ref.ref_dir = 'experiment/clip_cam/调GCAM损/l2_only,amp'
-cfg.rand_ref.rand_copy = IL(lambda c:
-                            {'initial context': (osp.join(c.rand_ref.ref_dir, 'checkpoints/start.pth'),
-                                                 osp.join(c.rslt_dir, 'checkpoints/start.pth'))})
 
 # * 设定小样本集。
 dt = cfg.dt

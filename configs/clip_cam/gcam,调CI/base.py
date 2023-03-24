@@ -10,7 +10,7 @@
 """
 from alchemy_cat.py_tools import Config
 
-cfg = config = Config('configs/clip_cam/base.py', 'configs/clip_cam/_patches/ref/l2_only,amp.py')
+cfg = config = Config('configs/clip_cam/base.py', 'configs/clip_cam/_patches/ref/coop_ctx-M=16-V1.py')
 
 # * 关闭分类损失。
 cfg.loss.loss_items.multi_cls.weights = 0.
