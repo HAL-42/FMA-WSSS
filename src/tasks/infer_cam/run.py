@@ -109,7 +109,9 @@ print(f"{matplotlib.get_backend()=}")
 # matplotlib.use('Agg')
 
 # * 配置路径。
-os.makedirs(cam_cache_dir := osp.join('/tmp', uuid.uuid4().hex), exist_ok=True)  # 总是暂存/长存CAM。不存（只viz）的可能很小。
+os.makedirs(cam_cache_dir := osp.join('/tmp', uuid.uuid4().hex), exist_ok=True)  # 总是暂存/长存CAM。不存（只viz）不大可能。
+if cfg.solver.save_cam:
+    cam_save_dir = osp.join(cfg.rslt_dir, 'cam')
 if cfg.solver.viz_cam:
     os.makedirs(cam_viz_dir := osp.join(cfg.rslt_dir, 'viz', 'cam'), exist_ok=True)
 if cfg.solver.viz_score:
@@ -119,8 +121,10 @@ if cfg.eval.enabled:
 
 # * 如果只需要eval，此时即可eval并退出。
 if args.eval_only:
+    shutil.copytree(cam_save_dir, cam_cache_dir, dirs_exist_ok=True)
     assert cfg.eval.enabled
     search_and_eval()
+    shutil.rmtree(cam_cache_dir)
     exit(0)
 
 # * 数据集。
@@ -263,6 +267,6 @@ if cfg.eval.enabled:
 if not cfg.solver.save_cam:
     shutil.rmtree(cam_cache_dir)
 else:
-    if osp.isdir(cam_save_dir := osp.join(cfg.rslt_dir, 'cam')):
+    if osp.isdir(cam_save_dir):
         shutil.rmtree(cam_save_dir)
     shutil.move(cam_cache_dir, cam_save_dir)

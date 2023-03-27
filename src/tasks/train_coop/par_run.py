@@ -30,7 +30,7 @@ class TrainCoOp(Cfg2TuneRunner):
         pkl_idx, (cfg_pkl, cfg_rslt_dir) = pkl_idx_cfg_pkl_cfg_rslt_dir
 
         # * 根据分到的配置，训练网络。
-        if osp.isfile(final_pth := osp.join(cfg_rslt_dir, 'checkpoints', 'final.pth')):
+        if (not args.purge) and osp.isfile(final_pth := osp.join(cfg_rslt_dir, 'checkpoints', 'final.pth')):
             print(f"{final_pth}存在，跳过{cfg_pkl}。")
         else:
             # * 找到当前应当使用的CUDA设备，并等待当前CUDA设备空闲。
@@ -38,6 +38,8 @@ class TrainCoOp(Cfg2TuneRunner):
 
             # * 在当前设备上执行训练。
             subprocess.run([sys.executable, 'src/tasks/train_coop/run.py',
+                            '-i', f'{args.infer_only}',
+                            '-e', f'{args.eval_only}',
                             '-c', cfg_pkl],
                            check=False, env=env_with_current_cuda)
 
@@ -48,7 +50,10 @@ class TrainCoOp(Cfg2TuneRunner):
 
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--purge', default=0, type=int)
 parser.add_argument('-c', '--config', type=str)
+parser.add_argument("-i", '--infer_only', default=0, type=int)
+parser.add_argument("-e", '--eval_only', default=0, type=int)
 args = parser.parse_args()
 
 runner = TrainCoOp(args.config,

@@ -33,6 +33,24 @@ from utils.inf_loader import inf_loader
 from utils.loss_items import cal_loss_items
 
 
+def infer():
+    gprint("\n================================== Inference ===================================")
+    torch.cuda.empty_cache()  # 尽量释放显存给推理。
+    infer_cfg = cfg.infer.cfg.unfreeze()
+    infer_cfg.model.resume_file = osp.join(model_save_dir, 'final.pth')
+
+    cfg_pkl = osp.join(cfg.rslt_dir.replace('experiment/', 'configs/'),
+                       'infer', f'final', 'cfg.pkl')
+    os.makedirs(osp.dirname(cfg_pkl), exist_ok=True)
+
+    with open(cfg_pkl, 'wb') as pkl_f:
+        pickle.dump(infer_cfg, pkl_f)
+    subprocess.run([sys.executable, 'src/tasks/infer_cam/run.py',
+                    '-e', f'{args.eval_only}',
+                    '-c', cfg_pkl], check=False)
+    gprint("\n================================ Inference End =================================")
+
+
 # * 读取命令行参数。
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--config')
@@ -40,6 +58,8 @@ parser.add_argument('-f', '--prefetch_factor', default=2, type=int)
 parser.add_argument('-p', '--pin_memory', default=0, type=int)
 parser.add_argument("-b", '--benchmark', default=0, type=int)
 parser.add_argument("-d", '--is_debug', default=0, type=int)
+parser.add_argument("-i", '--infer_only', default=0, type=int)
+parser.add_argument("-e", '--eval_only', default=0, type=int)
 args = parser.parse_args()
 
 # * 初始化环境。
@@ -57,6 +77,11 @@ device, cfg = init_env(is_cuda=True,
 
 # * 配置路径。
 os.makedirs(model_save_dir := osp.join(cfg.rslt_dir, 'checkpoints'), exist_ok=True)
+
+# * 若只需要推理，立即推理并退出。
+if args.infer_only:
+    infer()
+    exit(0)
 
 # * 拷贝随机参考。
 for copy_name, (src, dst) in cfg.rand_ref.rand_copy.items():
@@ -264,17 +289,4 @@ gprint(f"{get_local_time_str()}    [完成]:")
 print(f"    将模型保存在{model_file}")
 
 # * 推理最终模型。
-gprint("\n================================== Inference ===================================")
-torch.cuda.empty_cache()  # 尽量释放显存给推理。
-infer_cfg = cfg.infer.cfg.unfreeze()
-infer_cfg.model.resume_file = osp.join(model_save_dir, 'final.pth')
-
-cfg_pkl = osp.join(cfg.rslt_dir.replace('experiment/', 'configs/'),
-                   'infer', f'final', 'cfg.pkl')
-os.makedirs(osp.dirname(cfg_pkl), exist_ok=True)
-
-with open(cfg_pkl, 'wb') as pkl_f:
-    pickle.dump(infer_cfg, pkl_f)
-subprocess.run([sys.executable, 'src/tasks/infer_cam/run.py',
-                '-c', cfg_pkl], check=False)
-gprint("\n================================ Inference End =================================")
+infer()
