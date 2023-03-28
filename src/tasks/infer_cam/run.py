@@ -11,10 +11,8 @@
 import argparse
 import os
 import os.path as osp
-import pickle
 import shutil
 import sys
-from functools import partial
 import uuid
 
 import matplotlib
@@ -23,7 +21,6 @@ import torch
 from alchemy_cat.acplot import BGR2RGB, col_all
 from alchemy_cat.contrib.tasks.wsss.viz import viz_cam
 from alchemy_cat.torch_tools import init_env, update_model_state_dict
-from frozendict import frozendict as fd
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -31,56 +28,8 @@ from tqdm import tqdm
 sys.path = ['.', './src'] + sys.path  # noqa: E402
 
 from libs.seeding.score import cam2score
-from utils.eval_cams import eval_cams
+from utils.eval_cams import search_and_eval
 from utils.resize import resize_cam
-
-
-def search_and_eval():
-    dt = cfg.dt.val.dt
-
-    # * 若已经有bg_method_metrics.pkl，则直接读取。
-    if osp.isfile(bg_method_metrics_pkl := osp.join(eval_dir, 'bg_method_metrics.pkl')):
-        with open(bg_method_metrics_pkl, 'rb') as f:
-            bg_method_metrics = pickle.load(f)
-    else:
-        bg_method_metrics = {}
-
-    # * 对各配置中的methods，计算其metric。
-    for bg_method in cfg.eval.seed.bg_methods:
-        bg_method = fd(bg_method)  # 将dict转换为frozendict，以便作为字典的key。
-        if bg_method in bg_method_metrics:
-            continue
-
-        metric = eval_cams(class_num=dt.class_num,
-                           class_names=dt.class_names,
-                           cam_dir=cam_cache_dir,
-                           preds_ignore_label=255,
-                           gts_dir='datasets/VOC2012/SegmentationClassAug',
-                           gts_ignore_label=dt.ignore_label,
-                           cam2pred=partial(cfg.eval.seed.cal,
-                                            bg_method=bg_method, resize_first=cfg.eval.seed.resize_first),
-                           result_dir=None,
-                           importance=0,
-                           eval_individually=False,
-                           take_pred_ignore_as_a_cls=False)
-        print(f'Current mIoU: {metric.mIoU:.4f} (bg_method={bg_method})')
-        bg_method_metrics[bg_method] = metric
-
-    # * 保存method_metrics.pkl。
-    with open(bg_method_metrics_pkl, 'wb') as f:
-        pickle.dump(bg_method_metrics, f)
-
-    # * 遍历method_metrics字典，找到最好的metric。
-    bg_methods, metrics = list(bg_method_metrics.keys()), list(bg_method_metrics.values())
-
-    best_idx = np.argmax(mIoUs := [metric.mIoU for metric in metrics])
-    best_metric = metrics[best_idx]
-    best_metric.save_statistics(eval_dir, importance=0)
-
-    for bg_method, mIoU in zip(bg_methods, mIoUs):
-        print(f'mIoU: {mIoU:.4f} (bg_method={bg_method})')
-    print(f'Best mIoU: {mIoUs[best_idx]:.4f} (bg_method={bg_methods[best_idx]})')
-
 
 # * 读取命令行参数。
 parser = argparse.ArgumentParser()
@@ -123,7 +72,7 @@ if cfg.eval.enabled:
 if args.eval_only:
     shutil.copytree(cam_save_dir, cam_cache_dir, dirs_exist_ok=True)
     assert cfg.eval.enabled
-    search_and_eval()
+    search_and_eval(cfg.dt.val.dt, cam_cache_dir, cfg.eval.seed, eval_dir)
     shutil.rmtree(cam_cache_dir)
     exit(0)
 
@@ -165,10 +114,6 @@ fig = plt.figure(dpi=600)
 idx = 0  # 用于计数推理了多少张图。
 
 for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', miniters=10):
-    # * 若只eval，跳过。
-    if args.eval_only:
-        break
-
     # * 获取新一个批次数据。
     inp = cfg.io.update_inp(inp)
 
@@ -188,8 +133,11 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
     fg_logits = out.fg_logits.detach().to(dtype=torch.float32, device='cpu').numpy()
     sample_fg_logit = [fg_logits[i, fg_cls_lb[i, :].astype(bool)] for i in range(batch_size)]
 
+    sample_att = torch.stack(out.att_weights, dim=1).detach().to(torch.float32).cpu().numpy()  # [样本数xDxLxL]
+
     # * 遍历每张图的id和CAM，保存到文件并可视化之。
-    for img_id, cam, fg_cls, fg_logit in zip(inp.img_id, sample_cam, sample_fg_cls, sample_fg_logit, strict=True):
+    for img_id, cam, fg_cls, fg_logit, att in zip(inp.img_id, sample_cam, sample_fg_cls, sample_fg_logit, sample_att,
+                                                  strict=True):
         # * 将CAM转到原始图像的尺寸上。✖放弃，改为储存原始尺寸的CAM。
         # cam = cv2.resize(cam.transpose(1, 2, 0), (ori_w, ori_h))
         # if cam.ndim == 2:
@@ -201,7 +149,7 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
         # cam = cam.numpy().astype(np.float16)
 
         # * 保存CAM。
-        np.savez(osp.join(cam_cache_dir, f'{img_id}.npz'), cam=cam, fg_cls=fg_cls)
+        np.savez(osp.join(cam_cache_dir, f'{img_id}.npz'), cam=cam, fg_cls=fg_cls, att=att, fg_logit=fg_logit)
 
         # * 如果需要可视化，根据img_id获取原始图像。
         if (cfg.solver.viz_cam or cfg.solver.viz_score) and (idx % cfg.solver.viz_step == 0):
@@ -261,7 +209,7 @@ for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', mi
 # * 如果只需要eval，此时即可eval并退出。
 if cfg.eval.enabled:
     torch.cuda.empty_cache()
-    search_and_eval()
+    search_and_eval(cfg.dt.val.dt, cam_cache_dir, cfg.eval.seed, eval_dir)
 
 # * 如果不用保存cam，则删除CAM保存目录。
 if not cfg.solver.save_cam:

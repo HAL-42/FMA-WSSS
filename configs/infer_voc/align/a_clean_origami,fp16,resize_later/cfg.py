@@ -18,4 +18,4 @@ cfg.model.ini.fp32 = False  # 使用fp16。
 
 cfg.model.ini.ctx_cfg.ctx_init = 'a clean origami'
 
-cfg.eval.seed.resize_first = False  # 先thresh、归一化，再resize。
+cfg.eval.seed.ini.resize_first = False  # 先thresh、归一化，再resize。

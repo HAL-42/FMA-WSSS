@@ -8,25 +8,26 @@
 @Software: PyCharm
 @Desc    : 
 """
-from typing import Optional, Iterable, Callable, Union, Tuple, Any
 import os
-from os import path as osp
 import pickle
 from collections import OrderedDict
-from tqdm import tqdm
+from functools import partial
+from os import path as osp
+from typing import Optional, Iterable, Callable, Union, Tuple, Any
 
 import cv2
 import numpy as np
-
 from alchemy_cat.contrib.metrics import SegmentationMetric
-from alchemy_cat.py_tools import OneOffTracker
+from alchemy_cat.py_tools import OneOffTracker, Config
+from frozendict import frozendict as fd
+from tqdm import tqdm
 
-__all__ = ['eval_cams']
+__all__ = ['eval_cams', 'search_and_eval']
 
 
 def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
               cam_dir: str, preds_ignore_label: int,
-              gts_dir: str, gts_ignore_label: int,
+              gt_dir: str, gts_ignore_label: int,
               cam2pred: Callable[[np.ndarray, Any, np.ndarray], np.ndarray],
               result_dir: Optional[str]=None,
               gt_preprocess: Callable[[np.ndarray], np.ndarray]=lambda x: x,
@@ -42,7 +43,7 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
         class_names: Name of classes
         cam_dir: Dictionary where cam stored
         preds_ignore_label: Ignore label for predictions
-        gts_dir: Dictionary where ground truths stored
+        gt_dir: Dictionary where ground truths stored
         gts_ignore_label: Ignore label for ground truths
         result_dir: If not None, eval result will be saved to result_dir. (Default: None)
         cam2pred: Function transfer cam file to prediction.
@@ -74,7 +75,7 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
         # Set files
         img_id = osp.splitext(cam_file_suffix)[0]
         cam_file = osp.join(cam_dir, cam_file_suffix)
-        gt_file = osp.join(gts_dir, f'{img_id}.png')
+        gt_file = osp.join(gt_dir, f'{img_id}.png')
 
         # Read files
         gt = cv2.imread(gt_file, cv2.IMREAD_GRAYSCALE)
@@ -112,3 +113,60 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
         return metric, sample_metrics
     else:
         return metric
+
+
+def search_and_eval(dt, cam_dir: str, seed_cfg: Config, eval_dir: str):
+    """搜索不同bg_method，获取最优性能。
+
+    Args:
+        dt: 数据集，提供类别数、类别名、忽略标签、标签目录等信息。
+        cam_dir: cam文件所在目录。
+        eval_dir: 保存评价结果的目录。
+        seed_cfg: seed_cfg.cal(cam, gt.shape, fg_cls, seed_cfg.bg_methods[i], **seed_cfg.ini)将CAM转换为seed。
+
+    Returns:
+        None
+    """
+    # * 若已经有bg_method_metrics.pkl，则直接读取。
+    if osp.isfile(bg_method_metrics_pkl := osp.join(eval_dir, 'bg_method_metrics.pkl')):
+        with open(bg_method_metrics_pkl, 'rb') as f:
+            bg_method_metrics = pickle.load(f)
+    else:
+        bg_method_metrics = {}
+
+    # * 对各配置中的methods，计算其metric。
+    for bg_method in seed_cfg.bg_methods:
+        bg_method = fd(dict(bg_method))  # 将dict转换为frozendict，以便作为字典的key。
+        if bg_method in bg_method_metrics:
+            continue
+
+        metric = eval_cams(class_num=dt.class_num,
+                           class_names=dt.class_names,
+                           cam_dir=cam_dir,
+                           preds_ignore_label=255,
+                           gt_dir=dt.label_dir,
+                           gts_ignore_label=dt.ignore_label,
+                           cam2pred=partial(seed_cfg.cal,
+                                            bg_method=bg_method, **seed_cfg.ini),
+                           result_dir=None,
+                           importance=0,
+                           eval_individually=False,
+                           take_pred_ignore_as_a_cls=False)
+        print(f'Current mIoU: {metric.mIoU:.4f} (bg_method={bg_method})')
+        bg_method_metrics[bg_method] = metric
+
+    # * 保存method_metrics.pkl。
+    with open(bg_method_metrics_pkl, 'wb') as f:
+        pickle.dump(bg_method_metrics, f)
+
+    # * 遍历method_metrics字典，找到最好的metric。
+    bg_methods, metrics = list(bg_method_metrics.keys()), list(bg_method_metrics.values())
+
+    best_idx = np.argmax(mIoUs := [metric.mIoU for metric in metrics])
+    best_metric = metrics[best_idx]
+    best_metric.save_statistics(eval_dir, importance=0)
+
+    # * 打印所有评价结果。
+    for bg_method, mIoU in zip(bg_methods, mIoUs):
+        print(f'mIoU: {mIoU:.4f} (bg_method={bg_method})')
+    print(f'Best mIoU: {mIoUs[best_idx]:.4f} (bg_method={bg_methods[best_idx]})')

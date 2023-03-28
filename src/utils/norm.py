@@ -13,7 +13,7 @@ import torch
 
 
 def min_max_norm(arr: torch.Tensor | np.ndarray, dim: int | tuple, detach_min_max: bool=True,
-                 thresh: float | None =None) -> torch.Tensor:
+                 thresh: float | None =None, eps: float=1e-7) -> torch.Tensor:
     """在指定维度min-max归一化输入张量。
 
     Args:
@@ -21,6 +21,7 @@ def min_max_norm(arr: torch.Tensor | np.ndarray, dim: int | tuple, detach_min_ma
         dim: 做归一化的维度。
         detach_min_max: 是否分离min和max。
         thresh: 若不为None，将归一化前张量中小于thresh的值置为thresh。
+        eps: 防止除0错误的极小值。
 
     Returns:
         归一化后的张量。
@@ -37,7 +38,7 @@ def min_max_norm(arr: torch.Tensor | np.ndarray, dim: int | tuple, detach_min_ma
     arr_min, arr_max = arr.amin(dim=dim, keepdim=True), arr.amax(dim=dim, keepdim=True)
     if detach_min_max:
         arr_min, arr_max = arr_min.detach(), arr_max.detach()
-    arr_normed = (arr - arr_min) / (arr_max - arr_min + 1e-7)
+    arr_normed = (arr - arr_min) / (arr_max - arr_min + eps)  # 其实用max(max - min, 1e-7)更安全（已经归一化过的不变）。
 
     # * 若为numpy数组，转为numpy数组。
     if is_numpy:
