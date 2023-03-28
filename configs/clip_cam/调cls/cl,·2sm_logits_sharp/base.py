@@ -13,12 +13,7 @@ from alchemy_cat.py_tools import Config, IL
 from libs.loss.multi_cls.sharpness import MultiLabelSharpness
 from libs.loss.multi_cls.cl_loss import MultiLabelCLLoss
 
-cfg = config = Config('configs/clip_cam/base.py', 'configs/clip_cam/_patches/ref/coop_ctx-M=16-V1.py')
-
-cfg.rslt_dir = ...
-cfg.rand_seed = 0  # 与随机参考使用相同的随机种子。如此相比基线多出随机部分，参考不同基线时，有不同的随机性。
-
-cfg.loss.loss_items.cam_lb.weights = (0., 0.)  # CAM上损失置0。
+cfg = config = Config('configs/clip_cam/调cls/base.py')
 
 cfg.loss.loss_items.sharp.ini.reduce = 'batch_mean'
 cfg.loss.loss_items.sharp.ini.loss_type = 'sharpness'
