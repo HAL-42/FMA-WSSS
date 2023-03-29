@@ -31,13 +31,15 @@ def cam2score(cam: np.ndarray, dsize, resize_first: bool) -> np.ndarray:
 
 def cam2score_cuda(cam: torch.Tensor, dsize, resize_first: bool) -> torch.Tensor:
     h, w = size2HW(dsize)
+    need_resize = (cam.shape[1] != h) or (cam.shape[2] != w)
+
     if resize_first:
         score = F.interpolate(cam.unsqueeze(0), size=(h, w), mode='bilinear',
-                              align_corners=False).squeeze(0)
+                              align_corners=False).squeeze(0) if need_resize else cam
         score = min_max_norm(score, dim=(1, 2), thresh=0.)
     else:
         score = min_max_norm(cam, dim=(1, 2), thresh=0.)
         score = F.interpolate(score.unsqueeze(0), size=(h, w), mode='bilinear',
-                              align_corners=False).squeeze(0)
+                              align_corners=False).squeeze(0) if need_resize else score
 
     return score
