@@ -8,18 +8,20 @@
 @Software: PyCharm
 @Desc    : 
 """
+import multiprocessing as mp
 import os
 import pickle
-from collections import OrderedDict
+import warnings
+from collections import defaultdict
 from functools import partial
-import multiprocessing as mp
 from os import path as osp
-from typing import Optional, Iterable, Callable, Union, Tuple, Any
+from typing import Optional, Iterable, Callable, Tuple
 
 import cv2
-from PIL import Image
 import numpy as np
+from PIL import Image
 from alchemy_cat.contrib.metrics import SegmentationMetric
+from alchemy_cat.acplot import RGB2BGR
 from alchemy_cat.data.plugins import identical
 from alchemy_cat.py_tools import OneOffTracker, Config
 from frozendict import frozendict as fd
@@ -33,7 +35,7 @@ def _eval_cams_core(cam_file_suffix: str,
                     cam_dir: str, gt_dir: str, image_dir: str,
                     gt_preprocess: Callable[[np.ndarray], np.ndarray],
                     crf: Callable[[np.ndarray, np.ndarray], np.ndarray]
-                    ) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray]:
+                    ) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     img_id = osp.splitext(cam_file_suffix)[0]
     cam_file = osp.join(cam_dir, cam_file_suffix)
     gt_file = osp.join(gt_dir, f'{img_id}.png')
@@ -55,7 +57,7 @@ def _eval_cams_core(cam_file_suffix: str,
 
     assert pred.shape == gt.shape
 
-    return img_id, pred, fg_bg_score, gt
+    return img_id, pred, fg_bg_score, fg_cls, gt
 
 
 def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
@@ -69,8 +71,9 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
               importance: int=2,
               eval_individually: bool=True, take_pred_ignore_as_a_cls: bool=False,
               metric_cls: type=SegmentationMetric,
-              pool_size=0) \
-        -> Union[Tuple[SegmentationMetric, OrderedDict], SegmentationMetric]:
+              pool_size=0,
+              save_sample_data: bool=False) \
+        -> (SegmentationMetric, defaultdict):
 
     """Evaluate predictions of semantic segmentation
 
@@ -91,6 +94,7 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
         take_pred_ignore_as_a_cls: If True, the ignored label in preds will be seemed as a class. (Default: False)
         metric_cls: Use metric_cls(class_num, class_names) to eval preds. (Default: SegmentationMetric)
         pool_size: Pool size for multiprocessing. (Default: 0)
+        save_sample_data: If True, sample data (pred, bg_fg_score) will be saved. (Default: False)
 
     Returns:
         Segmentation Metric and metric result for each sample (If eval_individually is True)
@@ -103,8 +107,8 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
         class_names += ['pred_ignore']
 
     metric = metric_cls(class_num, class_names)
-    if eval_individually:
-        sample_metrics = OrderedDict()
+
+    sample_data = defaultdict(dict)
 
     # * 构造核心函数。
     core = partial(_eval_cams_core,
@@ -122,9 +126,9 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
     else:
         it = map(core, cam_file_suffixes)
 
-    for img_id, pred, fg_bg_score, gt in tqdm(it,
-                                              total=len(cam_file_suffixes), miniters=10,
-                                              desc='eval progress', unit='sample', dynamic_ncols=True):
+    for img_id, pred, bg_fg_score, fg_cls, gt in tqdm(it,
+                                                      total=len(cam_file_suffixes), miniters=10,
+                                                      desc='eval progress', unit='sample', dynamic_ncols=True):
 
         if take_pred_ignore_as_a_cls:
             pred[pred == preds_ignore_label] = class_num - 1
@@ -136,7 +140,12 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
         if eval_individually:
             with OneOffTracker(lambda: metric_cls(class_num, class_names)) as individual_metric:
                 individual_metric.update(pred, gt)
-            sample_metrics[img_id] = individual_metric.statistics(importance)
+            sample_data[img_id]['metric'] = individual_metric.statistics(importance)
+
+        if save_sample_data:
+            sample_data[img_id]['seed'] = pred  # 在外面叫seed。
+            sample_data[img_id]['bg_fg_score'] = bg_fg_score
+            sample_data[img_id]['fg_cls'] = fg_cls
 
     if pool_size > 0:
         p.close()
@@ -147,72 +156,102 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
         metric.save_metric(result_dir, importance, dpi=400)
         if eval_individually:
             with open(osp.join(result_dir, 'sample_statistics.pkl'), 'wb') as f:
-                pickle.dump(sample_metrics, f)
+                pickle.dump({i: d['metric'] for i, d in sample_data.items()}, f)
 
     print("\n================================ Eval End ================================")
 
-    if eval_individually:
-        return metric, sample_metrics
-    else:
-        return metric
+    return metric, sample_data
 
 
-def search_and_eval(dt, cam_dir: str, seed_cfg: Config, eval_dir: str, pool_size: int=0):
+def _save_sample_data(sample_data: defaultdict | str, save_dir: str, mask_cfg: Config):
+    if sample_data == 'saved':
+        return
+
+    os.makedirs(data_dir := osp.join(save_dir, 'data'), exist_ok=True)
+    if mask_cfg:
+        os.makedirs(mask_dir := osp.join(save_dir, 'mask'), exist_ok=True)
+        os.makedirs(viz_mask_dir := osp.join(save_dir, 'viz_mask'), exist_ok=True)
+
+    for img_id, data in sample_data.items():
+        np.savez(osp.join(data_dir, f'{img_id}.npz'),
+                 seed=data['seed'], bg_fg_score=data['bg_fg_score'], fg_cls=data['fg_cls'])
+        if mask_cfg:
+            cv2.imwrite(osp.join(mask_dir, f'{img_id}.png'), mask := mask_cfg.cal(data).astype(np.uint8))
+            cv2.imwrite(osp.join(viz_mask_dir, f'{img_id}.png'), RGB2BGR(mask_cfg.viz(mask)))
+
+
+def search_and_eval(dt, cam_dir: str, seed_cfg: Config, rslt_dir: str, pool_size: int=0):
     """搜索不同bg_method，获取最优性能。
 
     Args:
         dt: 数据集，提供类别数、类别名、忽略标签、标签目录等信息。
         cam_dir: cam文件所在目录。
-        eval_dir: 保存评价结果的目录。
+        rslt_dir: 结果的目录。
         seed_cfg: seed_cfg.cal(cam, gt.shape, fg_cls, seed_cfg.bg_methods[i], **seed_cfg.ini)将CAM转换为seed。
         pool_size: 并行计算的进程数。0表示不使用并行计算。 (Default: 0)
 
     Returns:
         None
     """
+    os.makedirs(eval_dir := osp.join(rslt_dir, 'eval'), exist_ok=True)
+    if seed_cfg.save is not None:
+        assert seed_cfg.save in ['all', 'best']
+        os.makedirs(seed_dir := osp.join(rslt_dir, 'seed'), exist_ok=True)
+
     # * 若已经有bg_method_metrics.pkl，则直接读取。
     if osp.isfile(bg_method_metrics_pkl := osp.join(eval_dir, 'bg_method_metrics.pkl')):
         with open(bg_method_metrics_pkl, 'rb') as f:
             bg_method_metrics = pickle.load(f)
+        if seed_cfg.save is not None:
+            warnings.warn(f"应当确保缓存的{bg_method_metrics_pkl}保存了对应的种子。")
     else:
         bg_method_metrics = {}
 
     # * 对各配置中的methods，计算其metric。
+    best_bg_method, best_sample_data = None, None
+
     for bg_method in seed_cfg.bg_methods:
         bg_method = fd(dict(bg_method))  # 将dict转换为frozendict，以便作为字典的key。
-        if bg_method in bg_method_metrics:
-            continue
 
-        metric = eval_cams(class_num=dt.class_num,
-                           class_names=dt.class_names,
-                           cam_dir=cam_dir,
-                           preds_ignore_label=255,
-                           gt_dir=dt.label_dir,
-                           gts_ignore_label=dt.ignore_label,
-                           cam2pred=partial(seed_cfg.cal,
-                                            bg_method=bg_method, **seed_cfg.ini),
-                           image_dir=dt.image_dir,
-                           crf=seed_cfg.crf,
-                           result_dir=None,
-                           importance=0,
-                           eval_individually=False,
-                           take_pred_ignore_as_a_cls=False,
-                           pool_size=pool_size)
+        if bg_method in bg_method_metrics:
+            metric, sample_data = bg_method_metrics[bg_method], 'saved'
+        else:
+            metric, sample_data = eval_cams(class_num=dt.class_num,
+                                            class_names=dt.class_names,
+                                            cam_dir=cam_dir,
+                                            preds_ignore_label=255,
+                                            gt_dir=dt.label_dir,
+                                            gts_ignore_label=dt.ignore_label,
+                                            cam2pred=partial(seed_cfg.cal,
+                                                             bg_method=bg_method, **seed_cfg.ini),
+                                            image_dir=dt.image_dir,
+                                            crf=seed_cfg.crf,
+                                            result_dir=None,
+                                            importance=0,
+                                            eval_individually=False,
+                                            take_pred_ignore_as_a_cls=False,
+                                            pool_size=pool_size,
+                                            save_sample_data=seed_cfg.save is not None)
+
         print(f'Current mIoU: {metric.mIoU:.4f} (bg_method={bg_method})')
         bg_method_metrics[bg_method] = metric
+
+        if (best_bg_method is None) or (metric.mIoU > bg_method_metrics[best_bg_method].mIoU):
+            best_bg_method, best_sample_data = bg_method, sample_data
+
+        if seed_cfg.save == 'all':
+            _save_sample_data(sample_data, osp.join(seed_dir, f'{metric.mIoU:.2f}'), seed_cfg.mask)
 
     # * 保存method_metrics.pkl。
     with open(bg_method_metrics_pkl, 'wb') as f:
         pickle.dump(bg_method_metrics, f)
 
-    # * 遍历method_metrics字典，找到最好的metric。
-    bg_methods, metrics = list(bg_method_metrics.keys()), list(bg_method_metrics.values())
-
-    best_idx = np.argmax(mIoUs := [metric.mIoU for metric in metrics])
-    best_metric = metrics[best_idx]
-    best_metric.save_statistics(eval_dir, importance=0)
-
     # * 打印所有评价结果。
-    for bg_method, mIoU in zip(bg_methods, mIoUs):
-        print(f'mIoU: {mIoU:.4f} (bg_method={bg_method})')
-    print(f'Best mIoU: {mIoUs[best_idx]:.4f} (bg_method={bg_methods[best_idx]})')
+    for bg_method, metric in bg_method_metrics.items():
+        print(f'mIoU: {metric.mIoU:.4f} (bg_method={bg_method})')
+    print(f'Best mIoU: {bg_method_metrics[best_bg_method].mIoU:.4f} (bg_method={best_bg_method})')
+
+    # * 遍历method_metrics字典，找到最好的metric。
+    bg_method_metrics[best_bg_method].save_statistics(eval_dir, importance=0)
+    if seed_cfg.save == 'best':
+        _save_sample_data(best_sample_data, osp.join(seed_dir, 'best'), seed_cfg.mask)

@@ -33,13 +33,13 @@ cfg.aff.ori_cam_dir = IL(lambda c: osp.join(c.rslt_dir, '..', 'cam'))  # 默认�
 
 cfg.aff.ini.att2aff_cfg.last_n_layers = 8
 cfg.aff.ini.att2aff_cfg.method.type = 'sink-horn'
-cfg.aff.ini.att2aff_cfg.method.n_iter = 3
+cfg.aff.ini.att2aff_cfg.method.n_iter = 3  # 可调
 cfg.aff.ini.aff_mask_cfg.method.type = 'thresh-bbox'
-cfg.aff.ini.aff_mask_cfg.method.thresh = 0.4
-cfg.aff.ini.aff_mask_cfg.method.to_in_bbox = 'in_bbox'
-cfg.aff.ini.aff_mask_cfg.method.to_out_bbox = 'in_bbox'
-cfg.aff.ini.aff_cfg.n_iters = 1
-cfg.aff.ini.aff_at = 'cam'
+cfg.aff.ini.aff_mask_cfg.method.thresh = 0.4  # 可调
+cfg.aff.ini.aff_mask_cfg.method.to_in_bbox = 'in_bbox'  # 可调
+cfg.aff.ini.aff_mask_cfg.method.to_out_bbox = 'in_bbox'  # 可调
+cfg.aff.ini.aff_cfg.n_iters = 1  # 可调
+cfg.aff.ini.aff_at = 'cam'  # 试试score
 cfg.aff.ini.dsize = None
 cfg.aff.cal = IL(lambda c: partial(att_cam, **c.aff.ini))
 
@@ -54,4 +54,6 @@ cfg.eval.enabled = True
 cfg.eval.seed.cal = seed_argmax_cuda
 cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(1, 4)]
 cfg.eval.seed.ini.resize_first = True  # 先阈值+归一化，还是先resize。
-cfg.eval.seed.crf = None
+cfg.eval.seed.crf = None  # 可调
+cfg.eval.seed.save = None
+cfg.eval.seed.mask = None

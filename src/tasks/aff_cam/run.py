@@ -69,14 +69,12 @@ if __name__ == '__main__':
         os.makedirs(cam_affed_viz_dir := osp.join(cfg.rslt_dir, 'viz', 'cam_affed'), exist_ok=True)
     if cfg.solver.viz_score:
         os.makedirs(score_viz_dir := osp.join(cfg.rslt_dir, 'viz', 'score'), exist_ok=True)
-    if cfg.eval.enabled:
-        os.makedirs(eval_dir := osp.join(cfg.rslt_dir, 'eval'), exist_ok=True)
 
     # * 如果只需要eval，此时即可eval并退出。
     if args.eval_only:
-        subprocess.run(['cp', '-a', cam_affed_save_dir, cam_affed_cache_dir])
         assert cfg.eval.enabled
-        search_and_eval(cfg.dt.val.dt, cam_affed_cache_dir, cfg.eval.seed, eval_dir, args.pool_size)
+        subprocess.run(['cp', '-a', osp.join(cam_affed_save_dir, '.'), cam_affed_cache_dir])
+        search_and_eval(cfg.dt.val.dt, cam_affed_cache_dir, cfg.eval.seed, cfg.rslt_dir, args.pool_size)
         subprocess.run(['rm', '-r', cam_affed_cache_dir])
         exit(0)
 
@@ -175,7 +173,7 @@ if __name__ == '__main__':
     # * 如果只需要eval，此时即可eval并退出。
     if cfg.eval.enabled:
         torch.cuda.empty_cache()
-        search_and_eval(cfg.dt.val.dt, cam_affed_cache_dir, cfg.eval.seed, eval_dir, args.pool_size)
+        search_and_eval(cfg.dt.val.dt, cam_affed_cache_dir, cfg.eval.seed, cfg.rslt_dir, args.pool_size)
 
     # * 删除cam_affed暂存目录。
     subprocess.run(['rm', '-r', cam_affed_cache_dir])

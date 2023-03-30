@@ -82,3 +82,5 @@ cfg.eval.seed.cal = seed_argmax_cuda
 cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(1, 11)]
 cfg.eval.seed.ini.resize_first = True  # 先阈值+归一化，还是先resize。
 cfg.eval.seed.crf = None
+cfg.eval.seed.save = None
+cfg.eval.seed.mask = None
