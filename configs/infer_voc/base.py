@@ -70,6 +70,7 @@ model.cal = lambda m, inp: m(inp.img, inp.fg_cls_lb)
 model.resume_file = ''
 
 # * 设定保存的内容。
+cfg.solver.save_att = 8
 cfg.solver.save_cam = True
 cfg.solver.viz_cam = True
 cfg.solver.viz_score.resize_first = IL(lambda c: c.eval.seed.ini.resize_first)
@@ -80,3 +81,4 @@ cfg.eval.enabled = True
 cfg.eval.seed.cal = seed_argmax_cuda
 cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(1, 11)]
 cfg.eval.seed.ini.resize_first = True  # 先阈值+归一化，还是先resize。
+cfg.eval.seed.crf = None
