@@ -25,8 +25,9 @@ cfg.rand_seed = 0  # 与随机参考使用相同的随机种子。如此相比�
 dt = cfg.dt
 # ** 设定验证集。
 dt.val.ini.cls_labels_type = 'seg_cls_labels'
+dt.val.ini.split = 'train_aug'
 dt.val.dt = IL(lambda c:
-               VOCAug2(root='datasets', split='train_aug', **c.dt.val.ini),
+               VOCAug2(root='datasets', **c.dt.val.ini),
                priority=-1)
 
 # * 设定训练和测试数据增强器。
