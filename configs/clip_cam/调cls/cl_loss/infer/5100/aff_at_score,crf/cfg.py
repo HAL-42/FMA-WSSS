@@ -13,7 +13,9 @@ import os.path as osp
 from alchemy_cat.py_tools import Cfg2Tune, Param2Tune
 
 cfg = config = Cfg2Tune('configs/patterns/seg_metrics/cls_m_IoU,pra.py',
-                        cfgs_update_at_parser=('configs/aff_voc/base.py',))
+                        cfgs_update_at_parser=('configs/aff_voc/base.py',
+                                               'configs/patterns/crf/deeplab_crf.py',
+                                               'configs/patterns/crf/crf_eval.py'))
 
 cfg.rslt_dir = ...
 
@@ -25,5 +27,5 @@ def ori_cam_dir(c):
 cfg.solver.viz_cam = False  # noqa
 cfg.solver.viz_score = False
 
-cfg.aff.ini.aff_cfg.n_iters = Param2Tune([1, 2, 3])
+cfg.aff.ini.aff_cfg.n_iters = Param2Tune([1, 2])
 cfg.aff.ini.aff_at = 'score'
