@@ -8,6 +8,7 @@
 @Software: PyCharm
 @Desc    : 
 """
+import glob
 import multiprocessing as mp
 import os
 import pickle
@@ -164,17 +165,29 @@ def eval_cams(class_num: int, class_names: Optional[Iterable[str]],
 
 
 def _save_sample_data(sample_data: defaultdict | str, save_dir: str, mask_cfg: Config):
-    if sample_data == 'saved':
-        return
+    data_dir = osp.join(save_dir, 'data')
+    mask_dir = osp.join(save_dir, 'mask')
+    viz_mask_dir = osp.join(save_dir, 'viz_mask')
 
-    os.makedirs(data_dir := osp.join(save_dir, 'data'), exist_ok=True)
+    mask_only = False
+    if sample_data == 'saved':
+        assert osp.isdir(data_dir)  # 检查是否真的保存了。
+        if mask_cfg and (not osp.isdir(mask_dir)):  # 虽然存过了，但mask没存。
+            mask_only = True
+            data_files = glob.glob(osp.join(data_dir, '*.npz'))
+            sample_data = {osp.splitext(osp.basename(f))[0]: np.load(f) for f in data_files}
+        else:
+            return
+
+    os.makedirs(data_dir, exist_ok=True)
     if mask_cfg:
-        os.makedirs(mask_dir := osp.join(save_dir, 'mask'), exist_ok=True)
-        os.makedirs(viz_mask_dir := osp.join(save_dir, 'viz_mask'), exist_ok=True)
+        os.makedirs(mask_dir, exist_ok=True)
+        os.makedirs(viz_mask_dir, exist_ok=True)
 
     for img_id, data in sample_data.items():
-        np.savez(osp.join(data_dir, f'{img_id}.npz'),
-                 seed=data['seed'], bg_fg_score=data['bg_fg_score'], fg_cls=data['fg_cls'])
+        if not mask_only:
+            np.savez(osp.join(data_dir, f'{img_id}.npz'),
+                     seed=data['seed'], bg_fg_score=data['bg_fg_score'], fg_cls=data['fg_cls'])
         if mask_cfg:
             cv2.imwrite(osp.join(mask_dir, f'{img_id}.png'), mask := mask_cfg.cal(data).astype(np.uint8))
             cv2.imwrite(osp.join(viz_mask_dir, f'{img_id}.png'), RGB2BGR(mask_cfg.viz(mask)))
