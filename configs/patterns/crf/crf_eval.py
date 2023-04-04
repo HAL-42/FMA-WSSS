@@ -13,3 +13,5 @@ from alchemy_cat.py_tools import Config, IL
 cfg = config = Config()
 
 cfg.eval.seed.crf = IL(lambda c: c.crf.cal)
+
+cfg.eval.seed.bg_methods = [{'method': 'pow', 'pow': p} for p in range(1, 3)]  # CRF后，bg power一般在1时最优。
