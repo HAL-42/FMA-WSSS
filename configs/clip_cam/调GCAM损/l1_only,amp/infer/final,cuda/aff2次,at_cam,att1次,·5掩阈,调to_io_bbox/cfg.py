@@ -18,8 +18,8 @@ cfg.rslt_dir = ...
 # * 覆盖原配置，使其适合调参（不改变算法）。
 cfg.aff.ori_cam_dir = 'experiment/clip_cam/调GCAM损/l1_only,amp/infer/final,cuda/cam'
 
-cfg.solver.viz_cam = True  # noqa
-cfg.solver.viz_score = True
+# cfg.solver.viz_cam = False  # noqa
+# cfg.solver.viz_score = False
 
 # * 修改算法参数。
 cfg.aff.ini.att2aff_cfg.method.n_iter = 1
