@@ -7,3 +7,6 @@
 [submodule "others/CoOp"]
 	path = others/CoOp
 	url = https://github.com/KaiyangZhou/CoOp.git
+[submodule "others/segment-anything"]
+	path = others/segment-anything
+	url = git@10.13.73.233:xiaobo/segment-anything.git
