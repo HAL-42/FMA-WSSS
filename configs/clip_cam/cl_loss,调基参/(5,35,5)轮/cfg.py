@@ -16,4 +16,4 @@ cfg = config = Cfg2Tune('configs/patterns/seg_metrics/cls_m_IoU,pra.py',
 cfg.rslt_dir = ...
 
 # * 一律预热500迭代（0.75）轮，训练5,10,15,20轮。
-cfg.solver.max_iter = Param2Tune([500 + 3300, 500 + 6600, 500 + 9900, 500 + 13200])
+cfg.solver.max_iter = Param2Tune([500 + 3300, 500 + 6600, 500 + 9900, 500 + 13200, 500 + 16500, 500 + 19800])
