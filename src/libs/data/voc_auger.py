@@ -8,26 +8,31 @@
 @Software: PyCharm
 @Desc    : 
 """
+from functools import partial
 from typing import Any, Callable
 
-from math import ceil
-
-from PIL import Image
+import alchemy_cat.data.plugins.augers as au
 import numpy as np
+from PIL import Image
 from addict import Dict
-
-from torchvision.transforms import ToTensor, Normalize, ToPILImage
-
 from alchemy_cat.acplot import BGR2RGB
 from alchemy_cat.alg import size2HW
-from alchemy_cat.py_tools import PackCompose, Compose
-from alchemy_cat.data import Dataset
-import alchemy_cat.data.plugins.augers as au
 from alchemy_cat.contrib.voc import lb2cls_lb
+from alchemy_cat.data import Dataset
+from alchemy_cat.py_tools import PackCompose, Compose
+from math import ceil
+from torchvision.transforms import ToTensor, Normalize, ToPILImage
 
 kPILMode = Image.BICUBIC  # 适配CLIP。
 
 __all__ = ['VOC2Auger']
+
+
+def _scale_short_size_to(target_size: int, img: np.ndarray, lb: np.ndarray | None=None,
+                         align_corner: bool=False, PIL_mode: int=kPILMode):
+    return au.scale_img_label(target_size / min(*img.shape[:2]),
+                              img, lb,
+                              align_corner=align_corner, PIL_mode=PIL_mode)
 
 
 class VOC2Auger(Dataset):
@@ -65,8 +70,7 @@ class VOC2Auger(Dataset):
                 self.scale_crop = au.pack_identical
             case (int() | (int(), int())) as size:
                 h, w = size2HW(size)
-                self.scale_crop = lambda img, lb: au.scale_img_label((h, w), img, lb,
-                                                                     align_corner=False, PIL_mode=kPILMode)
+                self.scale_crop = partial(au.scale_img_label, (h, w), align_corner=False, PIL_mode=kPILMode)
             case {'method': 'rand_resize_crop', }:
                 # TODO 让该模式支持img-label对的增强。
                 # 好处：1）面积比例较高时，基本能不丢物体。2）能控制ratio范围。劣势：scale、ratio变化范围有限。
@@ -79,9 +83,7 @@ class VOC2Auger(Dataset):
                 pass
             case {'method': 'fix_short', 'crop_size': crop_size}:
                 self.scale_crop = PackCompose([
-                    lambda img, lb: au.scale_img_label(crop_size / min(*img.shape[:2]),
-                                                       img, lb,
-                                                       align_corner=False, PIL_mode=kPILMode),
+                    partial(_scale_short_size_to, crop_size),
                     au.RandCrop(crop_size)
                 ])
             case _:
