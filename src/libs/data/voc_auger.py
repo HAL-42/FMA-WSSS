@@ -69,9 +69,14 @@ class VOC2Auger(Dataset):
                                                                      align_corner=False, PIL_mode=kPILMode)
             case {'method': 'rand_resize_crop', }:
                 # TODO 让该模式支持img-label对的增强。
+                # 好处：1）面积比例较高时，基本能不丢物体。2）能控制ratio范围。劣势：scale、ratio变化范围有限。
                 pass
             case {'method': 'scale_align', 'aligner': aligner, 'scale_factors': scale_factors}:  # BS=1下可用。
+                # 好处：1）尺寸变化范围任意大，2）不丢失物体；劣势：无法保证ratio不变。
                 self.scale_crop = au.MultiScale(scale_factors, aligner, align_corner=False, PIL_mode=kPILMode)
+            case {'method': 'scale_long_pad', 'aligner': aligner, 'scale_factors': scale_factors}:  # BS=1下可用。
+                # 好处：1）尺寸变化范围任意大，2）不丢失物体，3）不改变ratio；劣势：需要pad。
+                pass
             case {'method': 'fix_short', 'crop_size': crop_size}:
                 self.scale_crop = PackCompose([
                     lambda img, lb: au.scale_img_label(crop_size / min(*img.shape[:2]),

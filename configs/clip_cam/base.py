@@ -105,7 +105,7 @@ opt.momentum = 0.9
 # * 设定Scheduler。
 sched = cfg.sched
 
-sched.warm.warm_iters = 500  # 1.5轮。
+sched.warm.warm_iters = 500  # 0.75轮。
 sched.warm.ini.start_factor = IL(lambda c:
                                  1e-5 / c.opt.base_lr,
                                  priority=0)
@@ -139,7 +139,7 @@ cfg.amp.scaler.ini.enabled = IL(lambda c: c.amp.enabled)
 cfg.amp.scaler.ini.init_scale = 2.**16
 
 # * 设定solver。
-cfg.solver.max_iter = 17000  # ~51.5轮。
+cfg.solver.max_iter = 17000  # ~25.7轮。
 cfg.solver.display_step = 10
 cfg.solver.loss_average_step = IL(lambda c: c.solver.display_step)
 cfg.solver.save_step = IL(lambda c: max(c.solver.max_iter // 10, 1000))
