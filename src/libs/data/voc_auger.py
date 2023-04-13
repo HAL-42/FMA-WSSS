@@ -71,7 +71,7 @@ class VOC2Auger(Dataset):
             case (int() | (int(), int())) as size:
                 h, w = size2HW(size)
                 self.scale_crop = partial(au.scale_img_label, (h, w), align_corner=False, PIL_mode=kPILMode)
-            case {'method': 'rand_resize_crop', 'size': size, 'scale_range': scale, 'ratio_range': ratio}:
+            case {'method': 'rand_resize_crop', 'size': size, 'scale': scale, 'ratio': ratio}:
                 # 好处：1）面积比例较高时，基本能不丢物体。2）能控制ratio范围。劣势：scale、ratio变化范围有限。
                 self.scale_crop = au.RandomResizeCrop(size, scale, ratio, interpolation=kPILMode)
             case {'method': 'scale_align', 'aligner': aligner, 'scale_factors': scale_factors}:  # BS=1下可用。
@@ -85,7 +85,8 @@ class VOC2Auger(Dataset):
                     au.RandRangeScale(low_size, high_size, short_thresh,
                                       aligner=aligner, align_corner=False, PIL_mode=kPILMode),
                     partial(au.pad_img_label, pad_img_to=high_size,
-                            img_pad_val=mean[::-1], ignore_label=255,
+                            img_pad_val=(np.asarray(mean[::-1]) * 255).astype(np.uint8),
+                            ignore_label=255,
                             pad_location='right-bottom', with_mask=True)
                 ])
             case {'method': 'fix_short', 'crop_size': crop_size}:
@@ -149,8 +150,7 @@ class VOC2Auger(Dataset):
             img, lb = scale_crop_out
         else:
             img, lb, padding_mask, pad_pos = scale_crop_out
-            out.padding_mask = padding_mask
-            out.pad_pos = pad_pos
+            out.pad_info.padding_mask, out.pad_info.pad_pos = padding_mask, pad_pos
         # * 随机镜像。
         if self.is_rand_mirror:
             img, lb = self.rand_mirror(img, lb)

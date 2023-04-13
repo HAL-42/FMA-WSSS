@@ -123,10 +123,12 @@ class GetLN1(nn.Module):
 
         # * 生成mask。
         if pad_info is not None:
-            mask = pad_info['mask']  # NHW
+            mask = pad_info['padding_mask']  # NHW
             assert mask.shape == (n, ori_h, ori_w)
-            mask = F.unfold(mask[:, None, :, :], kernel_size=patch_size, stride=patch_size)  # (N, p^2, L-1)
-            mask = torch.all(mask, dim=1)  # (N, L-1)，若patch全为pad，则为True。
+            # mask = F.unfold(mask[:, None, :, :], kernel_size=patch_size, stride=patch_size)  # (N, p^2, L-1)
+            mask = mask.view(n, ori_h // patch_size, patch_size, ori_w // patch_size, patch_size)
+            mask = mask.permute(0, 1, 3, 2, 4).contiguous().view(n, -1, patch_size * patch_size)  # (N, L-1, p^2)
+            mask = torch.all(mask, dim=2)  # (N, L-1)，若patch全为pad，则为True。
             mask = torch.cat([torch.zeros(n, 1, device=mask.device, dtype=mask.dtype), mask], dim=1)  # (N, L)
             self._cache.key_padding_mask = mask
         else:
@@ -139,7 +141,7 @@ class GetLN1(nn.Module):
             pad_pos = []
             for m in img_mask:  # (H, W)
                 h_idxes, w_idxes = torch.nonzero(m, as_tuple=True)
-                i, j, ii, jj = h_idxes.min(), h_idxes.max(), w_idxes.min(), w_idxes.max()
+                i, ii, j, jj = h_idxes.min(), h_idxes.max(), w_idxes.min(), w_idxes.max()
                 img_h, img_w = ii - i + 1, jj - j + 1
                 pad_pos.append((i, j, img_h, img_w))
 
