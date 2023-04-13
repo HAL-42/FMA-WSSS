@@ -71,6 +71,7 @@ auger.train.cls = VOC2Auger
 
 # * 设定数据管理器。
 cfg.loader.train.batch_size = 16
+cfg.loader.train.sub_iter_num = 1
 cfg.loader.num_workers = 12
 
 # * 设定网络的输入处理。
@@ -80,6 +81,8 @@ cfg.io.update_out = io.gcam_clip_out_to_cls_loss  # 增加out.fg_logits。
 # * 设定网络。
 model = cfg.model
 
+model.patch_size = 16
+
 model.ini.clip_name = 'ViT-B/16'
 model.ini.fp32 = False
 model.ini.classnames = IL(lambda c: c.model.fg_names + c.model.bg_names)
@@ -87,7 +90,7 @@ model.ini.ctx_cfg.n_ctx = 16
 model.ini.ctx_cfg.ctx_init = ''
 model.ini.ctx_cfg.csc = False
 model.ini.ctx_cfg.cls_token_pos = 'end'
-model.ini.adaptive_pos_emb = False
+model.ini.adaptive_pos_emb = True
 model.ini.sm_fg_exist = True
 model.cls = coop.grad_cam_clip
 

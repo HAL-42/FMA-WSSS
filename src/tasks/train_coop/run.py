@@ -109,7 +109,7 @@ print(train_auger, end="\n\n")
 # * 数据加载器。
 train_sampler = RandomSampler(train_auger, generator=torch.Generator().manual_seed(cfg.rand_seed))  # 采样的随机独立。
 train_loader = DataLoader(train_auger,
-                          batch_size=cfg.loader.train.batch_size,
+                          batch_size=cfg.loader.train.batch_size // cfg.loader.train.sub_iter_num,
                           sampler=train_sampler,
                           num_workers=cfg.loader.num_workers,
                           pin_memory=bool(args.pin_memory),
@@ -175,7 +175,8 @@ cacher.resume_except_cache_to_file(cfg.rslt_dir)
 print("\n")
 
 # * Loss跟踪。
-loss_trackers = defaultdict(lambda: MovingAverageValueTracker(cfg.solver.loss_average_step))
+loss_trackers = defaultdict(lambda: MovingAverageValueTracker(cfg.solver.loss_average_step *  # 窗长要乘以子迭代次数。
+                                                              cfg.loader.train.sub_iter_num))
 print(loss_trackers, end="\n\n")
 
 # * Tensorboard。
@@ -185,23 +186,28 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
                       desc='训练', unit='批次', miniters=cfg.solver.display_step, bar_format='{l_bar}{bar}{r_bar}\n'):
     meow.iteration = iteration  # 在全局变量中记录当前迭代次数。
 
-    # * 获取新一个批次数据。
-    inp = next(inf_train_loader)
-    inp = cfg.io.update_inp(inp)
-
     # * 清除之前的梯度。
     opt.zero_grad(set_to_none=True)
 
-    with amp.autocast(enabled=cfg.amp.enabled):
-        # * 前向。
-        out = cal_model(model, inp)
-        out = cfg.io.update_out(inp, out)
+    for sub_iteration in range(cfg.loader.train.sub_iter_num):  # 遍历所有子迭代。
+        # * 获取新一个批次数据。
+        inp = next(inf_train_loader)
+        inp = cfg.io.update_inp(inp)
 
-        # * 计算损失。
-        losses = cal_loss_items(loss_items, inp, out)
+        with amp.autocast(enabled=cfg.amp.enabled):
+            # * 前向。
+            out = cal_model(model, inp)
+            out = cfg.io.update_out(inp, out)
 
-    # * 后向。
-    scaler.scale(losses['total_loss']).backward()
+            # * 计算损失。
+            losses = cal_loss_items(loss_items, inp, out)
+
+        # * 记录损失。
+        for loss_name, loss_val in losses.items():  # 记录没有平均过的子迭代损失，配合扩展后的窗长，可得正确结果。
+            loss_trackers[loss_name].update(loss_val.item())
+
+        # * 后向。
+        scaler.scale(losses['total_loss'] / cfg.loader.train.sub_iter_num).backward()
 
     # * 步进：优化模型参数，并调整学习率。
     scaler.step(opt)
@@ -214,10 +220,6 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
 
     # * 调整学习率。
     sched.step()
-
-    # * 记录损失。
-    for loss_name, loss_val in losses.items():
-        loss_trackers[loss_name].update(loss_val.item())
 
     # * 显示训练状态。
     if (iteration + 1) % cfg.solver.display_step == 0:
