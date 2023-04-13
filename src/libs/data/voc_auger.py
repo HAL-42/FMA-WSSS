@@ -71,16 +71,23 @@ class VOC2Auger(Dataset):
             case (int() | (int(), int())) as size:
                 h, w = size2HW(size)
                 self.scale_crop = partial(au.scale_img_label, (h, w), align_corner=False, PIL_mode=kPILMode)
-            case {'method': 'rand_resize_crop', }:
-                # TODO 让该模式支持img-label对的增强。
+            case {'method': 'rand_resize_crop', 'size': size, 'scale_range': scale, 'ratio_range': ratio}:
                 # 好处：1）面积比例较高时，基本能不丢物体。2）能控制ratio范围。劣势：scale、ratio变化范围有限。
-                pass
+                self.scale_crop = au.RandomResizeCrop(size, scale, ratio, interpolation=kPILMode)
             case {'method': 'scale_align', 'aligner': aligner, 'scale_factors': scale_factors}:  # BS=1下可用。
                 # 好处：1）尺寸变化范围任意大，2）不丢失物体；劣势：无法保证ratio不变。
                 self.scale_crop = au.MultiScale(scale_factors, aligner, align_corner=False, PIL_mode=kPILMode)
-            case {'method': 'scale_long_pad', 'aligner': aligner, 'scale_factors': scale_factors}:  # BS=1下可用。
-                # 好处：1）尺寸变化范围任意大，2）不丢失物体，3）不改变ratio；劣势：需要pad。
-                pass
+            case {'method': 'scale_long_pad',
+                  'low_size': low_size, 'high_size': high_size, 'short_thresh': short_thresh,
+                  'aligner': aligner}:
+                # 好处：1）尺寸变化范围任意大，2）不丢失物体，3）不改变ratio；劣势：1）需要pad，2）不能隐式地增强相对位置。
+                self.scale_crop = PackCompose([
+                    au.RandRangeScale(low_size, high_size, short_thresh,
+                                      aligner=aligner, align_corner=False, PIL_mode=kPILMode),
+                    partial(au.pad_img_label, pad_img_to=high_size,
+                            img_pad_val=mean[::-1], ignore_label=255,
+                            pad_location='right-bottom', with_mask=True)
+                ])
             case {'method': 'fix_short', 'crop_size': crop_size}:
                 self.scale_crop = PackCompose([
                     partial(_scale_short_size_to, crop_size),
@@ -138,7 +145,12 @@ class VOC2Auger(Dataset):
         if self.is_color_jitter:
             img = self.rand_color_jitter(img)
         # * 缩放。
-        img, lb = self.scale_crop(img, lb)
+        if len(scale_crop_out := self.scale_crop(img, lb)) == 2:
+            img, lb = scale_crop_out
+        else:
+            img, lb, padding_mask, pad_pos = scale_crop_out
+            out.padding_mask = padding_mask
+            out.pad_pos = pad_pos
         # * 随机镜像。
         if self.is_rand_mirror:
             img, lb = self.rand_mirror(img, lb)

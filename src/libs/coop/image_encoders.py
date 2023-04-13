@@ -16,16 +16,18 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from libs.clip.model import CLIP
+from libs.clip.model import CLIP, ResidualAttentionBlock
 
 
-def scale_pos_emb(pos_emb: torch.Tensor, emb_h: int, emb_w: int) -> torch.Tensor:
+def scale_pos_emb(pos_emb: torch.Tensor, emb_h: int, emb_w: int,
+                  pad_pos: list[tuple[int, int, int, int]]=None) -> torch.Tensor:
     """将位置嵌入缩放到与嵌入相同尺寸。
 
     Args:
         pos_emb: (L, D)的位置嵌入。
         emb_h: 分块嵌入的高。
         emb_w: 分块嵌入的高。
+        pad_pos: 若输入图像被填充，原图位置的坐标。
 
     Returns:
         (emb_h * emb_w + 1, D)的缩放后位置嵌入。
@@ -38,18 +40,33 @@ def scale_pos_emb(pos_emb: torch.Tensor, emb_h: int, emb_w: int) -> torch.Tensor
     L, D = patch_pos_emb.shape
     S = int(L ** .5)
     assert S * S == L
-    # ** 若尺寸相同，不需要采样。
-    if (emb_h == S) and (emb_w == S):
+    # ** 若没有pad，则尺寸相同，不需要scale。
+    if (pad_pos is None) and ((emb_h == S) and (emb_w == S)):
+        return pos_emb
+    # ** 若有pad，则尺寸相同，且实际没有发生pad，不需要scale。
+    if (pad_pos is not None) and ((emb_h == S) and (emb_w == S)) and ((emb_h == pad_pos[2]) and (emb_w == pad_pos[3])):
         return pos_emb
     patch_pos_emb = patch_pos_emb.permute(1, 0)  # (D, L-1)
     patch_pos_emb = patch_pos_emb.view(1, D, S, S)  # (1, D, S, S)
 
     # * 上采样位置嵌入。
-    scaled_patch_pos_emb = F.interpolate(patch_pos_emb, size=(emb_h, emb_w), mode='bilinear', align_corners=False)
-    scaled_patch_pos_emb = scaled_patch_pos_emb.view(D, -1)  # (D, hw)
-    scaled_patch_pos_emb = scaled_patch_pos_emb.permute(1, 0)  # (hw, D)
-    scaled_pos_emb = torch.cat([cls_pos_emb, scaled_patch_pos_emb], 0)  # (hw + 1, D)
-    # scaled_pos_emb = nn.parameter.Parameter(scaled_pos_emb.half())  # 理论上不会改变类型。采样emb应当是中间量而非参数。
+    if pad_pos is None:
+        scaled_patch_pos_emb = F.interpolate(patch_pos_emb, size=(emb_h, emb_w), mode='bilinear', align_corners=False)
+        scaled_patch_pos_emb = scaled_patch_pos_emb.view(D, -1)  # (D, hw)
+        scaled_patch_pos_emb = scaled_patch_pos_emb.permute(1, 0)  # (hw, D)
+        scaled_pos_emb = torch.cat([cls_pos_emb, scaled_patch_pos_emb], 0)  # (hw + 1, D)
+    else:
+        n = len(pad_pos)
+        scaled_patch_pos_emb = torch.zeros(n, D, emb_h, emb_w, device=patch_pos_emb.device, dtype=patch_pos_emb.dtype)
+        for idx, (i, j, img_h, img_w) in enumerate(pad_pos):
+            patch_pos_emb_on_img = F.interpolate(patch_pos_emb, size=(img_h, img_w),
+                                                 mode='bilinear', align_corners=False)[0]  # (D, img_h, img_w)
+            scaled_patch_pos_emb[idx, :, i:i + img_h, j:j + img_w] = patch_pos_emb_on_img
+        scaled_patch_pos_emb = scaled_patch_pos_emb.view(n, D, -1)  # (n, D, hw)
+        scaled_patch_pos_emb = scaled_patch_pos_emb.permute(0, 2, 1)  # (n, hw, D)
+        scaled_pos_emb = torch.cat([cls_pos_emb.expand(n, 1, D), scaled_patch_pos_emb], 1)  # (n, hw + 1, D)
+
+    # scaled_pos_emb = nn.parameter.Parameter(scaled_pos_emb.half())  # 理论上不会改变类型。缩放后emb应当是中间量而非参数。
 
     # * 返回。
     assert scaled_pos_emb.dtype == pos_emb.dtype
@@ -58,11 +75,22 @@ def scale_pos_emb(pos_emb: torch.Tensor, emb_h: int, emb_w: int) -> torch.Tensor
 
 @dataclass
 class _EncoderCache(object):
+    n: int | None = None
+    d: int | None = None
+    ori_h: int | None = None
+    ori_w: int | None = None
     emb_h: int | None = None
     emb_w: int | None = None
+    L: int | None = None
+    key_padding_mask: torch.Tensor | None = None
+    pad_pos: list[tuple[int, int, int, int]] | None = None
 
     def clear(self):
+        self.n, self.d, self.ori_h, self.ori_w = None, None, None, None
         self.emb_h, self.emb_w = None, None
+        self.L = None
+        self.key_padding_mask = None
+        self.pad_pos = None
 
 
 class GetLN1(nn.Module):
@@ -82,14 +110,54 @@ class GetLN1(nn.Module):
         self.adaptive_pos_emb = adaptive_pos_emb
         self._cache = _EncoderCache()
 
+    def mount_mask(self, x: torch.Tensor, pad_info: dict[str, ...]=None):
+        # * 预先计算尺寸，并记录到cache。
+        n, d, ori_h, ori_w = x.shape
+        patch_size = self.visual.patch_size
+        emb_h, emb_w = ori_h // patch_size, ori_w // patch_size
+        L = emb_h * emb_w + 1
+
+        self._cache.n, self._cache.d, self._cache.ori_h, self._cache.ori_w = n, d, ori_h, ori_w
+        self._cache.emb_h, self._cache.emb_w = emb_h, emb_w
+        self._cache.L = L
+
+        # * 生成mask。
+        if pad_info is not None:
+            mask = pad_info['mask']  # NHW
+            assert mask.shape == (n, ori_h, ori_w)
+            mask = F.unfold(mask[:, None, :, :], kernel_size=patch_size, stride=patch_size)  # (N, p^2, L-1)
+            mask = torch.all(mask, dim=1)  # (N, L-1)，若patch全为pad，则为True。
+            mask = torch.cat([torch.zeros(n, 1, device=mask.device, dtype=mask.dtype), mask], dim=1)  # (N, L)
+            self._cache.key_padding_mask = mask
+        else:
+            mask = None
+
+        # * 生成有效位置。
+        if self.adaptive_pos_emb and mask is not None:
+            img_mask = (~mask[:, 1:]).view(n, emb_h, emb_w)  # (N, H, W)
+
+            pad_pos = []
+            for m in img_mask:  # (H, W)
+                h_idxes, w_idxes = torch.nonzero(m, as_tuple=True)
+                i, j, ii, jj = h_idxes.min(), h_idxes.max(), w_idxes.min(), w_idxes.max()
+                img_h, img_w = ii - i + 1, jj - j + 1
+                pad_pos.append((i, j, img_h, img_w))
+
+            self._cache.pad_pos = pad_pos  # [(i, j, h, w), ...], N个
+
+        # * 挂载（清除）mask。
+        for m in self.modules():
+            if isinstance(m, ResidualAttentionBlock):
+                m.key_padding_mask = mask
+
     def run_stem(self, x: torch.Tensor) -> torch.Tensor:
         """完成patch-emb、位置先验。"""
         visual = self.visual
         # * 分块嵌入。
         x = visual.conv1(x)  # shape = [*, width, grid, grid] NDHW
-        # * 记录patch嵌入图尺寸。
+        # * 检验patch嵌入图尺寸。
         emb_h, emb_w = x.shape[2:]
-        self._cache.emb_h, self._cache.emb_w = emb_h, emb_w
+        assert (self._cache.emb_h, self._cache.emb_w) == (emb_h, emb_w)
         # ** 拉平。
         x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2] ND(L-1)
         x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width] N(L-1)D
@@ -99,7 +167,7 @@ class GetLN1(nn.Module):
              torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device),
              x], dim=1)  # shape = [*, grid ** 2 + 1, width] NLD
         # * 加上位置嵌入。
-        pos_emb = (scale_pos_emb(visual.positional_embedding, emb_h, emb_w)
+        pos_emb = (scale_pos_emb(visual.positional_embedding, emb_h, emb_w, self._cache.pad_pos)
                    if self.adaptive_pos_emb
                    else visual.positional_embedding)
         x = x + pos_emb.to(x.dtype)
@@ -135,7 +203,12 @@ class GetLN1(nn.Module):
 
         cls_emb = x[:, 0, :]  # ND，类别牌的嵌入。
         patch_emb = x[:, 1:, :]  # N(L-1)D，所有patch的嵌入。
-        img_emb = torch.mean(patch_emb, dim=1)  # ND，图片的总嵌入。
+        if mask := self._cache.key_padding_mask is None:
+            img_emb = torch.mean(patch_emb, dim=1)  # ND，图片的总嵌入。
+        else:
+            img_mask = ~mask[:, 1:]  # N(L-1)
+            img_emb = (torch.sum(patch_emb * img_mask[:, :, None], dim=1) /  # ND
+                       img_mask.sum(dim=1, keepdim=True, dtype=patch_emb.dtype))  # ND，图片的总嵌入。
 
         if visual.proj is not None:
             cls_emb = cls_emb @ visual.proj
@@ -144,9 +217,12 @@ class GetLN1(nn.Module):
 
         return cls_emb, patch_emb, img_emb
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, pad_info: dict[str, ...]=None):
         # * 清空cache。
         self._cache.clear()
+
+        # * 挂载mask。
+        self.mount_mask(x, pad_info)
 
         # * stem前向，图片转嵌入。
         x = self.run_stem(x.to(self.dtype))

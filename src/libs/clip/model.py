@@ -170,7 +170,7 @@ class QuickGELU(nn.Module):
 
 
 class ResidualAttentionBlock(nn.Module):
-    def __init__(self, d_model: int, n_head: int, attn_mask: torch.Tensor = None):
+    def __init__(self, d_model: int, n_head: int, attn_mask: torch.Tensor = None, key_padding_mask: torch.Tensor=None):
         super().__init__()
 
         self.attn = nn.MultiheadAttention(d_model, n_head)
@@ -182,10 +182,12 @@ class ResidualAttentionBlock(nn.Module):
         ]))
         self.ln_2 = LayerNorm(d_model)
         self.attn_mask = attn_mask
+        self.key_padding_mask = key_padding_mask
 
     def attention(self, x: torch.Tensor, need_weights: bool=False):
         self.attn_mask = self.attn_mask.to(dtype=x.dtype, device=x.device) if self.attn_mask is not None else None
-        return self.attn(x, x, x, need_weights=need_weights, attn_mask=self.attn_mask)
+        return self.attn(x, x, x, need_weights=need_weights, attn_mask=self.attn_mask,
+                         key_padding_mask=self.key_padding_mask)
 
     def forward(self, x: torch.Tensor, need_weights: bool=False):
         # x = x + self.attention(self.ln_1(x))

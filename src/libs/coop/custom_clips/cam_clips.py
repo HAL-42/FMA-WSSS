@@ -45,14 +45,14 @@ class GradCAMCLIP(nn.Module):
         self._mode = 'train'
         self.set_mode(self.mode)
 
-    def get_logits(self, img: torch.Tensor) -> Dict:
+    def get_logits(self, img: torch.Tensor, pad_info: dict[str, ...]=None) -> Dict:
         # * 获取文本特征。
         prompts = self.prompt_learner().to(self.dtype)  # (G, 77, D)
         tokenized_prompts = self.tokenized_prompts  # (G, 77)，prompt BPE码，用于定位EOS。
         text_features = self.text_encoder(prompts, tokenized_prompts)  # (G, D)，从prompt_learner得到各类别prompt emb。
 
         # * 获取图像特征和中间量+注意力图。
-        out = self.image_encoder(img.to(self.dtype))
+        out = self.image_encoder(img.to(self.dtype), pad_info=pad_info)
 
         # * 计算前向到softmax logits。
         image_features = out.img_emb  # (N, D)
@@ -66,9 +66,9 @@ class GradCAMCLIP(nn.Module):
         out.logits = logits
         return out
 
-    def forward(self, img: torch.Tensor, fg_cls_lb: torch.Tensor) -> Dict:
+    def forward(self, img: torch.Tensor, fg_cls_lb: torch.Tensor, pad_info: dict[str, ...]=None) -> Dict:
         # * 前向计算logits。
-        out = self.get_logits(img)
+        out = self.get_logits(img, pad_info=pad_info)
 
         # * 计算softmax后的logits。
         logits = out.logits
