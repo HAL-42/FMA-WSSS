@@ -205,7 +205,7 @@ class GetLN1(nn.Module):
 
         cls_emb = x[:, 0, :]  # ND，类别牌的嵌入。
         patch_emb = x[:, 1:, :]  # N(L-1)D，所有patch的嵌入。
-        if mask := self._cache.key_padding_mask is None:
+        if (mask := self._cache.key_padding_mask) is None:
             img_emb = torch.mean(patch_emb, dim=1)  # ND，图片的总嵌入。
         else:
             img_mask = ~mask[:, 1:]  # N(L-1)

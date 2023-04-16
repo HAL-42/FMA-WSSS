@@ -21,7 +21,3 @@ cfg.auger.train.ini.scale_crop_method.low_size = ...
 cfg.auger.train.ini.scale_crop_method.high_size = ...
 cfg.auger.train.ini.scale_crop_method.short_thresh = 0
 cfg.auger.train.ini.scale_crop_method.aligner = IL(lambda c: partial(divisible_by_n, n=c.model.patch_size))
-
-@cfg.model.set_func()  # noqa
-def cal(m, inp):  # noqa
-    return m(inp.img, inp.fg_cls_lb, inp.pad_info)

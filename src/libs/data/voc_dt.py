@@ -11,8 +11,9 @@
 import os.path as osp
 import pickle
 
+import numpy as np
+from PIL import Image
 from addict import Dict
-
 from alchemy_cat.contrib.voc import VOCAug
 
 
@@ -24,7 +25,8 @@ class VOCAug2(VOCAug):
     3. 将输出打包为字典。
     """
     def __init__(self, root: str = "./contrib/datasets", year="2012", split: str = "train",
-                 cls_labels_type: str='seg_cls_labels'):
+                 cls_labels_type: str='seg_cls_labels',
+                 ps_mask_dir: str=None):
         super().__init__(root, year, split, PIL_read=True)
         # * 参数检查与记录。
         assert cls_labels_type in ('seg_cls_labels', 'det_cls_labels', 'ignore_diff_cls_labels')
@@ -32,6 +34,8 @@ class VOCAug2(VOCAug):
         # * 读取图像级标签。
         with open(osp.join(self.root, 'third_party', f'{cls_labels_type}.pkl'), 'rb') as pkl_f:
             self.id2cls_labels = pickle.load(pkl_f)
+        # * 记录伪真值目录。
+        self.ps_mask_dir = ps_mask_dir
 
     def get_item(self, index: int) -> Dict:
         img_id, img, lb = super().get_item(index)
@@ -39,5 +43,8 @@ class VOCAug2(VOCAug):
         out = Dict()
         out.img_id, out.img, out.lb = img_id, img, lb
         out.cls_lb = self.id2cls_labels[img_id]
+
+        if self.ps_mask_dir is not None:
+            out.lb = np.asarray(Image.open(osp.join(self.ps_mask_dir, f'{img_id}.png')), dtype=np.uint8)
 
         return out

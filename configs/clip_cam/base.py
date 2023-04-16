@@ -30,6 +30,7 @@ cfg.rand_ref.rand_copy = {}
 dt = cfg.dt
 # ** 设定训练集。
 dt.train.ini.cls_labels_type = 'seg_cls_labels'
+dt.train.ini.ps_mask_dir = None
 dt.train.dt = IL(lambda c:
                  VOCAug2(root='datasets', split='train_aug', **c.dt.train.ini),
                  priority=-10)
@@ -95,7 +96,7 @@ model.ini.sm_fg_exist = True
 model.cls = coop.grad_cam_clip
 
 def model_cal(m, inp):  # noqa
-    return m(inp.img, inp.fg_cls_lb)
+    return m(inp.img, inp.fg_cls_lb, pad_info=inp.pad_info if inp.pad_info else None)
 model.cal = model_cal  # noqa
 
 # * 设定优化器。
