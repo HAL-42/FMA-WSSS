@@ -8,6 +8,8 @@
 @Software: PyCharm
 @Desc    : 
 """
+import re
+
 from alchemy_cat.alg import find_nearest_even_size
 from alchemy_cat.py_tools import Config, IL
 
@@ -56,6 +58,8 @@ cfg.io.update_out = io.gcam_clip_out_to_cls_loss  # 增加out.fg_logits。
 # * 设定网络。
 model = cfg.model
 
+model.patch_size = IL(lambda c: int(re.search(r'/(\d+)', c.model.ini.clip_name).group(1)))
+
 model.ini.clip_name = 'ViT-B/16'
 model.ini.fp32 = True
 model.ini.classnames = IL(lambda c: c.model.fg_names + c.model.bg_names)
@@ -67,7 +71,9 @@ model.ini.adaptive_pos_emb = True
 model.ini.sm_fg_exist = True
 model.cls = coop.grad_cam_clip
 
-model.cal = lambda m, inp: m(inp.img, inp.fg_cls_lb)
+def model_cal(m, inp):  # noqa
+    return m(inp.img, inp.fg_cls_lb, pad_info=inp.pad_info if inp.pad_info else None)
+model.cal = model_cal  # noqa
 model.resume_file = ''
 
 # * 设定保存的内容。

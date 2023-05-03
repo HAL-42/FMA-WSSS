@@ -8,6 +8,8 @@
 @Software: PyCharm
 @Desc    : 
 """
+import re
+
 from alchemy_cat.py_tools import Config, IL
 from torch import nn
 
@@ -82,7 +84,7 @@ cfg.io.update_out = io.gcam_clip_out_to_cls_loss  # 增加out.fg_logits。
 # * 设定网络。
 model = cfg.model
 
-model.patch_size = 16
+model.patch_size = IL(lambda c: int(re.search(r'/(\d+)', c.model.ini.clip_name).group(1)))
 
 model.ini.clip_name = 'ViT-B/16'
 model.ini.fp32 = False
@@ -154,6 +156,7 @@ def model_cfg_train2eval(c):  # noqa
     eval_model_cfg = c.model.branch_copy()
     eval_model_cfg.ini.fp32 = True
     eval_model_cfg.ini.adaptive_pos_emb = True
+    eval_model_cfg.resume_file = ...
     return eval_model_cfg
 
 val_cfg = cfg.val.cfg = Config(cfgs_update_at_parser=('configs/infer_voc/square/base.py',  # noqa
@@ -161,10 +164,8 @@ val_cfg = cfg.val.cfg = Config(cfgs_update_at_parser=('configs/infer_voc/square/
 val_cfg.model = IL(model_cfg_train2eval, priority=10)  # 验证时，使用与训练时一样的模型。
 val_cfg.io = IL(lambda c: c.io.branch_copy(), priority=10)  # 验证时，使用与训练时一样的模型IO。
 val_cfg.rslt_dir = ...
-val_cfg.model.resume_file = ...
 
 infer_cfg = cfg.infer.cfg = Config(cfgs_update_at_parser=('configs/infer_voc/align/base.py',))
 infer_cfg.model = IL(model_cfg_train2eval, priority=10)  # 推理时，使用与训练时一样的模型。
 infer_cfg.io = IL(lambda c: c.io.branch_copy(), priority=10)  # 推理时，使用与训练时一样的模型IO。
 infer_cfg.rslt_dir = ...
-infer_cfg.model.resume_file = ...
