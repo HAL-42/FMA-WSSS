@@ -14,12 +14,11 @@ from typing import Any, Callable
 import alchemy_cat.data.plugins.augers as au
 import numpy as np
 from PIL import Image
-from addict import Dict
 from alchemy_cat.acplot import BGR2RGB
 from alchemy_cat.alg import size2HW
 from alchemy_cat.contrib.voc import lb2cls_lb
 from alchemy_cat.data import Dataset
-from alchemy_cat.py_tools import PackCompose, Compose
+from alchemy_cat.py_tools import PackCompose, Compose, ADict
 from math import ceil
 from torchvision.transforms import ToTensor, Normalize, ToPILImage
 
@@ -136,11 +135,11 @@ class VOC2Auger(Dataset):
                    mean=mean, std=std,
                    lb_scale_factor=None, ol_cls_lb=False)
 
-    def get_item(self, index) -> Dict:
+    def get_item(self, index) -> ADict:
         inp = self.dataset[index]
         img_id, img, lb, cls_lb = inp.img_id, inp.img, inp.lb, inp.cls_lb
 
-        out = Dict()
+        out = ADict()
 
         # * 色彩抖动。
         if self.is_color_jitter:

@@ -19,7 +19,8 @@ cfg._cfgs_update_at_parser = Param2Tune([('configs/clip_cam/cl_loss,调基参/ba
                                           'configs/patterns/aug/voc_scale_long_pad.py',) + c
                                          for c in
                                          [(),
-                                          ('configs/clip_cam/cl_loss,调基参/_patches/3.8k,1e-4小lr.py',)]])
+                                          ('configs/clip_cam/cl_loss,调基参/_patches/3.8k,1e-4小lr.py',)]],
+                                        optional_value_names=['17k_iter', '3·8k_iter'])
 
 # * 实验不同scale策略。
 cfg.auger.train.ini.scale_crop_method.low_size = Param2Tune([224, 320])
