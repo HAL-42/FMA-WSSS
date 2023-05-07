@@ -1,12 +1,12 @@
 [submodule "others/CLIP-ES"]
 	path = others/CLIP-ES
-	url = git@10.13.73.233:xiaobo/CLIP-ES.git
+	url = git@gitee.com:HAL-42/trans-wsss_-clip-es.git
 [submodule "others/deeplab-pytorch"]
 	path = others/deeplab-pytorch
-	url = git@10.13.73.233:xiaobo/Trans-WSSS_deeplab-pytorch.git
+	url = git@gitee.com:HAL-42/trans-wsss_deeplab-pytorch.git
 [submodule "others/CoOp"]
 	path = others/CoOp
-	url = https://github.com/KaiyangZhou/CoOp.git
+	url = git@gitee.com:HAL-42/trans-wsss_-co-op.git
 [submodule "others/segment-anything"]
 	path = others/segment-anything
-	url = git@10.13.73.233:xiaobo/segment-anything.git
+	url = git@gitee.com:HAL-42/trans-wsss_segment-anything.git
