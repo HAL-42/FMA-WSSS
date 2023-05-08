@@ -169,7 +169,7 @@ print(scaler, end="\n\n")
 set_rand_seed(cfg.rand_seed)
 print(f"训练前，重设随机种子为{cfg.rand_seed=}", end="\n\n")
 
-# * 保存或恢复训练前随机状态。
+# * 保存或恢复训练前随机状态。实测CLIP前后向+取数据不会改变、也不依赖随机状态，其实无所谓。
 cacher = RNGCacher()
 cacher.resume_except_cache_to_file(cfg.rslt_dir)
 print("\n")
