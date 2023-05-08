@@ -125,12 +125,15 @@ inf_train_loader = inf_loader(train_loader)
 model, get_state, get_named_param_groups = cfg.model.cls(**cfg.model.ini)
 cal_model = cfg.model.cal
 
-if osp.isfile(start_model := osp.join(model_save_dir, 'start.pth')):  # 若存在，认为是参考，载入。
-    update_model_state_dict(model, torch.load(start_model, map_location='cpu'), verbosity=3)
-else:
-    torch.save(get_state(model), start_model)
-    gprint(f"{get_local_time_str()}    [开始]: ")
-    print(f"    将模型保存在{start_model}")
+ctx_cfg = cfg.model.ini.ctx_cfg
+torch.save(get_state(model), f'pretrains/rand_ref/coop_ctx/'
+                             f'seed={cfg.rand_seed},M={ctx_cfg.n_ctx},'
+                             f'csc={ctx_cfg.csc},cls_token_pos={ctx_cfg.cls_token_pos}.pth')
+
+exit(0)
+
+gprint(f"{get_local_time_str()}    [开始]: ")
+print(f"    将模型保存在{start_model}")
 print(model, end="\n\n")
 
 model.set_mode('train')
