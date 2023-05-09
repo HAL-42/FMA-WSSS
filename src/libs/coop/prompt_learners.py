@@ -8,6 +8,7 @@
 @Software: PyCharm
 @Desc    : 拷贝自coop的trainer。
 """
+from alchemy_cat.py_tools import set_rand_seed, meow
 import torch
 from torch import nn
 
@@ -30,6 +31,9 @@ class CoOpLearner(nn.Module):
         # clip_imsize = clip_model.visual.input_resolution
         # cfg_imsize = cfg.INPUT.SIZE[0]
         # assert cfg_imsize == clip_imsize, f"cfg_imsize ({cfg_imsize}) must equal to clip_imsize ({clip_imsize})"
+
+        set_rand_seed(meow.rand_seed_final)
+        print(f"Using random seed: {meow.rand_seed_final} to initialize context vectors!")
 
         if ctx_init:
             # use given words to initialize context vectors
