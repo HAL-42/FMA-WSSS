@@ -126,8 +126,8 @@ model, get_state, get_named_param_groups = cfg.model.cls(**cfg.model.ini)
 cal_model = cfg.model.cal
 
 ctx_cfg = cfg.model.ini.ctx_cfg
-os.makedirs('pretrains/rand_ref/coop_ctx/hash_seed', exist_ok=True)
-torch.save(get_state(model), f'pretrains/rand_ref/coop_ctx/hash_seed/'
+os.makedirs('pretrains/rand_ref/coop_ctx/hash_seed/std=·125', exist_ok=True)
+torch.save(get_state(model), f'pretrains/rand_ref/coop_ctx/hash_seed/std=·125/'
                              f'seed={cfg.rand_base if cfg.rand_base else cfg.rand_seed},M={ctx_cfg.n_ctx},'
                              f'csc={ctx_cfg.csc},cls_token_pos={ctx_cfg.cls_token_pos}.pth')
 
