@@ -49,7 +49,7 @@ class CoOpLearner(nn.Module):
             else:
                 print("Initializing a generic context")
                 ctx_vectors = torch.empty(n_ctx, ctx_dim, dtype=dtype)  # (M, D)
-            nn.init.normal_(ctx_vectors, std=0.02)
+            nn.init.normal_(ctx_vectors, std=0.0125)
             prompt_prefix = " ".join(["X"] * n_ctx)
 
         print(f'Initial context: "{prompt_prefix}"')
