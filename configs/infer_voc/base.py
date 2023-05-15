@@ -9,8 +9,9 @@
 @Desc    : 
 """
 import re
+from functools import partial
 
-from alchemy_cat.alg import find_nearest_even_size
+from alchemy_cat.alg import divisible_by_n
 from alchemy_cat.py_tools import Config, IL
 
 from libs import coop
@@ -38,7 +39,8 @@ auger = cfg.auger
 auger.val.ini.is_color_jitter = False
 scale_crop_method = auger.val.ini.scale_crop_method
 scale_crop_method.method = 'scale_align'
-scale_crop_method.aligner = find_nearest_even_size
+scale_crop_method.aligner = IL(lambda c: partial(divisible_by_n, n=c.model.patch_size, direction='larger'),
+                               priority=2)
 scale_crop_method.scale_factors = [1.]
 auger.val.ini.is_rand_mirror = False
 auger.val.ini.mean = (0.48145466, 0.4578275, 0.40821073)
