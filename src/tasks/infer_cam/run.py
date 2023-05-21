@@ -21,6 +21,7 @@ import numpy as np
 import torch
 from alchemy_cat.acplot import BGR2RGB, col_all
 from alchemy_cat.contrib.tasks.wsss.viz import viz_cam
+from alchemy_cat.py_tools import get_local_time_str
 from alchemy_cat.torch_tools import init_env, update_model_state_dict
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
@@ -65,7 +66,10 @@ if __name__ == '__main__':
     print(f"{matplotlib.get_backend()=}")
 
     # * 配置路径。
-    os.makedirs(cam_cache_dir := osp.join('/tmp', uuid.uuid4().hex), exist_ok=True)  # 总是暂存/长存CAM。不存（只viz）不大可能。
+    os.makedirs(cam_cache_dir := osp.join('/tmp',
+                                          'infer_cam',
+                                          f'{uuid.uuid4().hex}@{get_local_time_str(for_file_name=True)}'),
+                exist_ok=False)  # 总是暂存/长存CAM。不存（只viz）不大可能。
     if cfg.solver.save_cam:
         cam_save_dir = osp.join(cfg.rslt_dir, 'cam')
     if cfg.solver.viz_cam:
