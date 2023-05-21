@@ -14,6 +14,7 @@ import pickle
 import numpy as np
 from PIL import Image
 from addict import Dict
+from alchemy_cat.acplot import BGR2RGB
 from alchemy_cat.contrib.voc import VOCAug
 
 
@@ -21,12 +22,14 @@ class VOCAug2(VOCAug):
     """在标准VOCAug基础上:
 
     1. 返回cls_lb。
-    2. 将图片改为RGB模式。
+    2. 支持将lb替换为伪标签。
     3. 将输出打包为字典。
+    4. 支持返回RGB img。
     """
     def __init__(self, root: str = "./contrib/datasets", year="2012", split: str = "train",
                  cls_labels_type: str='seg_cls_labels',
-                 ps_mask_dir: str=None):
+                 ps_mask_dir: str=None,
+                 rgb_img: bool=False):
         super().__init__(root, year, split, PIL_read=True)
         # * 参数检查与记录。
         assert cls_labels_type in ('seg_cls_labels', 'det_cls_labels', 'ignore_diff_cls_labels')
@@ -36,9 +39,14 @@ class VOCAug2(VOCAug):
             self.id2cls_labels = pickle.load(pkl_f)
         # * 记录伪真值目录。
         self.ps_mask_dir = ps_mask_dir
+        # * 是否返回RGB图像。
+        self.rgb_img = rgb_img
 
     def get_item(self, index: int) -> Dict:
         img_id, img, lb = super().get_item(index)
+
+        if self.rgb_img:
+            img = BGR2RGB(img).copy()
 
         out = Dict()
         out.img_id, out.img, out.lb = img_id, img, lb
