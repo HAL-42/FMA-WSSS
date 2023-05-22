@@ -118,4 +118,4 @@ metric = eval_preds(class_num=dt.class_num,
                     take_pred_ignore_as_a_cls=False)
 print(metric)
 print(f'mIoU: {metric.mIoU:.4f}')
-metric.save_statistics(eval_dir, importance=0)
+metric.save_metric(eval_dir, importance=0, figsize=(24, 24))
