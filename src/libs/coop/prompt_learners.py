@@ -58,8 +58,8 @@ class CoOpLearner(nn.Module):
         self.ctx = nn.Parameter(ctx_vectors)  # to be optimized, 类型与clip_model一致
 
         classnames = [name.replace("_", " ") for name in classnames]
-        name_lens = [len(_tokenizer.encode(name)) for name in classnames]
-        prompts = [prompt_prefix + " " + name + "." for name in classnames]
+        name_lens = [len(_tokenizer.encode(name)) for name in classnames]  # name为空，则长度为0。
+        prompts = [prompt_prefix + " " + name + "." for name in classnames]  # '.'和' .'的编号是一样，name为空不影响。
 
         tokenized_prompts = torch.cat([clip.tokenize(p) for p in prompts])  # (G, 77)
         with torch.no_grad():
@@ -122,10 +122,10 @@ class CoOpLearner(nn.Module):
             prompts = []
             for i in range(self.n_cls):
                 name_len = self.name_lens[i]
-                prefix_i = prefix[i: i + 1, :, :]
-                class_i = suffix[i: i + 1, :name_len, :]
-                suffix_i = suffix[i: i + 1, name_len:, :]
-                ctx_i = ctx[i: i + 1, :, :]
+                prefix_i = prefix[i: i + 1, :, :]  # (1, 1, dim)
+                class_i = suffix[i: i + 1, :name_len, :]  # (1, 'class name', dim)
+                suffix_i = suffix[i: i + 1, name_len:, :]  # (1, '. <end> 0 0 ...', dim)
+                ctx_i = ctx[i: i + 1, :, :]  # (1, n_ctx, dim)
                 prompt = torch.cat(
                     [
                         prefix_i,  # (1, 1, dim)
