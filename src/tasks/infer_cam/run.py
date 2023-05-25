@@ -88,6 +88,7 @@ if __name__ == '__main__':
     # * 数据集。
     val_dt = cfg.dt.val.dt
     print(val_dt, end="\n\n")
+    fg_names = val_dt.class_names[1:]
 
     # * 训练数据增强器。
     val_auger = cfg.auger.val.cls(val_dt, **cfg.auger.val.ini)
@@ -177,7 +178,7 @@ if __name__ == '__main__':
 
                 pos_names = ['dummy']
                 for cls, c in zip(fg_cls, cam, strict=True):
-                    pos_names.append(f'{cfg.model.fg_names[cls]} {c.min():.1e} {c.max():.1e}')
+                    pos_names.append(f'{fg_names[cls]} {c.min():.1e} {c.max():.1e}')
 
                 resized_cam = resize_cam(cam, (ori_h, ori_w))
 
@@ -202,7 +203,7 @@ if __name__ == '__main__':
 
                 pos_names = ['dummy']
                 for cls, logit in zip(fg_cls, fg_logit, strict=True):
-                    pos_names.append(f'{cfg.model.fg_names[cls]} {logit:.1f}')
+                    pos_names.append(f'{fg_names[cls]} {logit:.1f}')
 
                 viz_cam(fig=fig,
                         img_id=img_id, img=ori_img, label=ori_lb,
