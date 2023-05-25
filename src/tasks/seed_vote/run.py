@@ -46,8 +46,9 @@ device, cfg = init_env(is_cuda=True,
 
 # * 初始化保存目录。
 os.makedirs(refined_seed_save_dir := osp.join(cfg.rslt_dir, 'refined_seed'), exist_ok=True)
-os.makedirs(color_refined_seed_dir := osp.join(cfg.rslt_dir, 'viz', 'color_refined_seed'), exist_ok=True)
-os.makedirs(img_seed_refined_dir := osp.join(cfg.rslt_dir, 'viz', 'img_seed_refined'), exist_ok=True)
+if cfg.viz.enable:
+    os.makedirs(color_refined_seed_dir := osp.join(cfg.rslt_dir, 'viz', 'color_refined_seed'), exist_ok=True)
+    os.makedirs(img_seed_refined_dir := osp.join(cfg.rslt_dir, 'viz', 'img_seed_refined'), exist_ok=True)
 os.makedirs(eval_dir := osp.join(cfg.rslt_dir, 'eval'), exist_ok=True)
 
 # * 初始化数据集。
@@ -74,14 +75,18 @@ for idx, inp in tqdm(enumerate(dt), total=len(dt), dynamic_ncols=True, desc='投
         print(f'No annotation for {img_id}, use seed directly.')
         refined_seed = seed
 
+    refined_seed[refined_seed == 255] = 0  # seed中Ignore部分一律为背景。否则eval结果不精确。
+
     # * 保存优化后种子点。
     arr2PIL(refined_seed).save(osp.join(refined_seed_save_dir, f'{img_id}.png'))
 
     # * 可视化。
-    color_refined_seed = label_map2color_map(refined_seed)
-    arr2PIL(color_refined_seed, order='RGB').save(osp.join(color_refined_seed_dir, f'{img_id}.png'))
+    if cfg.viz.enable:
+        color_refined_seed = label_map2color_map(refined_seed)
+        arr2PIL(color_refined_seed, order='RGB').save(osp.join(color_refined_seed_dir, f'{img_id}.png'))
 
     if cfg.viz.enable and (idx % cfg.viz.step == 0):
+
         fig.clf()
 
         ax: plt.axes = fig.add_subplot(1, 3, 1)
