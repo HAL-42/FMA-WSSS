@@ -69,6 +69,7 @@ model.ini.ctx_cfg.n_ctx = 16
 model.ini.ctx_cfg.ctx_init = ''
 model.ini.ctx_cfg.csc = False
 model.ini.ctx_cfg.cls_token_pos = 'end'
+model.ini.ctx_cfg.ctx_std = 0.0125
 model.ini.adaptive_pos_emb = True
 model.ini.sm_fg_exist = True
 model.cls = coop.grad_cam_clip

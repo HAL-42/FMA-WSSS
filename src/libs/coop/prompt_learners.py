@@ -8,6 +8,7 @@
 @Software: PyCharm
 @Desc    : 拷贝自coop的trainer。
 """
+import numpy as np
 import torch
 from torch import nn
 
@@ -19,7 +20,12 @@ _tokenizer = _Tokenizer()
 
 class CoOpLearner(nn.Module):
 
-    def __init__(self, classnames: list[str], clip_model, n_ctx: int, ctx_init: str, csc: bool, cls_token_pos: str):
+    def __init__(self, classnames: list[str], clip_model,
+                 n_ctx: int,
+                 ctx_init: str,
+                 csc: bool | list | np.ndarray,
+                 cls_token_pos: str,
+                 ctx_std: float=0.0125):
         super().__init__()
         n_cls = len(classnames)
         # n_ctx = cfg.TRAINER.COOP.N_CTX
@@ -43,13 +49,21 @@ class CoOpLearner(nn.Module):
 
         else:
             # random initialization
-            if csc:
-                print("Initializing class-specific contexts")
-                ctx_vectors = torch.empty(n_cls, n_ctx, ctx_dim, dtype=dtype)  # (G, M, D)
-            else:
-                print("Initializing a generic context")
-                ctx_vectors = torch.empty(n_ctx, ctx_dim, dtype=dtype)  # (M, D)
-            nn.init.normal_(ctx_vectors, std=0.0125)
+            match csc:
+                case True:
+                    print("Initializing class-specific contexts")
+                    ctx_vectors = torch.empty(n_cls, n_ctx, ctx_dim, dtype=dtype)  # (G, M, D)
+                case False:
+                    print("Initializing a generic context")
+                    ctx_vectors = torch.empty(n_ctx, ctx_dim, dtype=dtype)  # (M, D)
+                case (list() | np.ndarray()):
+                    print("Initializing a mixin context")
+                    assert len(csc) == len(classnames)
+                    ctx_vectors = torch.empty(np.amax(csc) + 1, n_ctx, ctx_dim, dtype=dtype)  # (G, M, D)
+                case _:
+                    raise ValueError(f"Unknown csc type: {csc}")
+
+            nn.init.normal_(ctx_vectors, std=ctx_std)
             prompt_prefix = " ".join(["X"] * n_ctx)
 
         print(f'Initial context: "{prompt_prefix}"')
@@ -73,14 +87,21 @@ class CoOpLearner(nn.Module):
 
         self.n_cls = n_cls
         self.n_ctx = n_ctx
+        self.csc = csc
         self.tokenized_prompts = tokenized_prompts  # torch.Tensor
         self.name_lens = name_lens
         self.class_token_position = cls_token_pos
 
     def forward(self):
-        ctx = self.ctx  # (M, D)
-        if ctx.dim() == 2:
-            ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1)  # (G, M, D)
+        ctx = self.ctx  # (M, D) 或 (G, M, D)
+
+        match self.csc:
+            case False:
+                ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1)  # (G, M, D)
+            case (list() | np.ndarray()):
+                ctx = ctx[self.csc, :, :]  # (G, M, D)
+            case _:
+                pass
 
         prefix = self.token_prefix  # (G, 1, D)的SOS
         suffix = self.token_suffix  # (G, 60, D)的CLS+类名+EOS
