@@ -265,6 +265,6 @@ def search_and_eval(dt, cam_dir: str, seed_cfg: Config, rslt_dir: str, pool_size
     print(f'Best mIoU: {bg_method_metrics[best_bg_method].mIoU:.4f} (bg_method={best_bg_method})')
 
     # * 遍历method_metrics字典，找到最好的metric。
-    bg_method_metrics[best_bg_method].save_statistics(eval_dir, importance=0)
+    bg_method_metrics[best_bg_method].save_metric(eval_dir, importance=0, figsize=(24, 24))
     if seed_cfg.save == 'best':
         _save_sample_data(best_sample_data, osp.join(seed_dir, 'best'), seed_cfg.mask)

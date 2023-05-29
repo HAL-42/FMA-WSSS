@@ -9,9 +9,10 @@
 @Desc    : 
 """
 import numpy as np
-from cv2 import cv2
-
+import torch
+import torch.nn.functional as F
 from alchemy_cat.alg import size2HW
+from cv2 import cv2
 
 
 def resize_cam(cam: np.ndarray, size, interpolation: int=cv2.INTER_LINEAR) -> np.ndarray:
@@ -36,3 +37,11 @@ def resize_cam(cam: np.ndarray, size, interpolation: int=cv2.INTER_LINEAR) -> np
             cam = cam.transpose(2, 0, 1)
 
     return cam
+
+
+def resize_cam_cuda(cam: torch.Tensor, size, interpolation: str='bilinear') -> torch.Tensor:
+    h, w = size2HW(size)
+    need_resize = (cam.shape[1] != h) or (cam.shape[2] != w)
+
+    return F.interpolate(cam.unsqueeze(0), size=(h, w), mode=interpolation,
+                         align_corners=False).squeeze(0) if need_resize else cam

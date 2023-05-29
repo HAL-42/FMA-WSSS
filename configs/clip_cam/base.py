@@ -88,11 +88,12 @@ model.patch_size = IL(lambda c: int(re.search(r'/(\d+)', c.model.ini.clip_name).
 
 model.ini.clip_name = 'ViT-B/16'
 model.ini.fp32 = False
-model.ini.classnames = IL(lambda c: c.model.fg_names + c.model.bg_names)
+model.ini.classnames = IL(lambda c: c.model.fg_names + c.model.bg_names)  # ! 只用于初始化prompt leaner，并非真实类名。
 model.ini.ctx_cfg.n_ctx = 16
 model.ini.ctx_cfg.ctx_init = ''
 model.ini.ctx_cfg.csc = False
 model.ini.ctx_cfg.cls_token_pos = 'end'
+model.ini.ctx_cfg.ctx_std = 0.0125
 model.ini.adaptive_pos_emb = True
 model.ini.sm_fg_exist = True
 model.cls = coop.grad_cam_clip

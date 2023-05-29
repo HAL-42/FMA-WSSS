@@ -21,6 +21,7 @@ import numpy as np
 import torch
 from alchemy_cat.acplot import BGR2RGB, col_all
 from alchemy_cat.contrib.tasks.wsss.viz import viz_cam
+from alchemy_cat.py_tools import get_local_time_str
 from alchemy_cat.torch_tools import init_env, update_model_state_dict
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
@@ -65,7 +66,10 @@ if __name__ == '__main__':
     print(f"{matplotlib.get_backend()=}")
 
     # * 配置路径。
-    os.makedirs(cam_cache_dir := osp.join('/tmp', uuid.uuid4().hex), exist_ok=True)  # 总是暂存/长存CAM。不存（只viz）不大可能。
+    os.makedirs(cam_cache_dir := osp.join('/tmp',
+                                          'infer_cam',
+                                          f'{uuid.uuid4().hex}@{get_local_time_str(for_file_name=True)}'),
+                exist_ok=False)  # 总是暂存/长存CAM。不存（只viz）不大可能。
     if cfg.solver.save_cam:
         cam_save_dir = osp.join(cfg.rslt_dir, 'cam')
     if cfg.solver.viz_cam:
@@ -84,6 +88,7 @@ if __name__ == '__main__':
     # * 数据集。
     val_dt = cfg.dt.val.dt
     print(val_dt, end="\n\n")
+    fg_names = val_dt.class_names[1:]
 
     # * 训练数据增强器。
     val_auger = cfg.auger.val.cls(val_dt, **cfg.auger.val.ini)
@@ -173,7 +178,7 @@ if __name__ == '__main__':
 
                 pos_names = ['dummy']
                 for cls, c in zip(fg_cls, cam, strict=True):
-                    pos_names.append(f'{cfg.model.fg_names[cls]} {c.min():.1e} {c.max():.1e}')
+                    pos_names.append(f'{fg_names[cls]} {c.min():.1e} {c.max():.1e}')
 
                 resized_cam = resize_cam(cam, (ori_h, ori_w))
 
@@ -198,7 +203,7 @@ if __name__ == '__main__':
 
                 pos_names = ['dummy']
                 for cls, logit in zip(fg_cls, fg_logit, strict=True):
-                    pos_names.append(f'{cfg.model.fg_names[cls]} {logit:.1f}')
+                    pos_names.append(f'{fg_names[cls]} {logit:.1f}')
 
                 viz_cam(fig=fig,
                         img_id=img_id, img=ori_img, label=ori_lb,
