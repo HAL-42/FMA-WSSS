@@ -13,6 +13,7 @@ from typing import Optional, List, Iterable, Tuple, Dict, Any
 
 import numpy as np
 import torch
+from alchemy_cat.py_tools import ADict
 from torchvision.ops import batched_nms
 
 from segment_anything import SamAutomaticMaskGenerator
@@ -22,7 +23,57 @@ from segment_anything.utils.amg import (MaskData, calculate_stability_score, bat
                                         uncrop_boxes_xyxy, uncrop_points, coco_encode_rle, rle_to_mask,
                                         box_xyxy_to_xywh, area_from_rle)
 
-__all__ = ["SamAuto"]
+__all__ = ["SamAnns", "SamAuto"]
+
+
+class SamAnns(list):
+    """SAM返回结果类。继承自list，但是可以通过.访问到纵向属性。"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data = ADict()
+
+    def clear_data(self):
+        self.data = ADict()
+
+    def stack_data_like(self, anns: 'SamAnns'):
+        like_data = anns.data
+
+        self.clear_data()
+        self.stack_data(masks='masks' in like_data,
+                        areas='areas' in like_data,
+                        device=like_data.device)
+
+    def stack_data(self, masks: bool=True, areas: bool=True, device=torch.device('cpu')):
+        """将data在纵向维度stack。
+
+        Args:
+            masks: 若为True，则将masks stack到self.data.masks中。
+            areas: 若为True，则将area stack到self.data.areas中。
+            device: stack所得的tensor的device。
+
+        Returns:
+            自身。
+        """
+        self.data.device = torch.device(device)
+
+        if masks:
+            m = [torch.as_tensor(SamAuto.decode_segmentation(ann, replace=False), dtype=torch.bool, device=device)
+                 for ann in self]
+            self.data.masks = torch.stack(m, dim=0)
+
+        if areas:
+            self.data.areas = torch.as_tensor([ann['area'] for ann in self], dtype=torch.int32, device=device)
+
+    def add_item(self, key: str, val: Iterable):
+        """给所有标注增加一个名为key的项目。
+
+        Args:
+            key: 键名。
+            val: 键值，可迭代，长度为标注数目相同。
+        """
+        for ann, v in zip(self, val, strict=True):
+            ann[key] = v
 
 
 class SamAuto(SamAutomaticMaskGenerator):
@@ -174,7 +225,7 @@ class SamAuto(SamAutomaticMaskGenerator):
             mask_data["segmentations"] = mask_data["rles"]  # 返回未压缩的游程编码。
 
         # Write mask records
-        curr_anns = []
+        curr_anns = SamAnns()
         for idx in range(len(mask_data["segmentations"])):  # 以mask为首维，返回。
             ann = {
                 "segmentation": mask_data["segmentations"][idx],
