@@ -8,6 +8,8 @@
 @Software: PyCharm
 @Desc    : 
 """
+from typing import Any
+
 from addict import Dict
 
 import torch
@@ -44,6 +46,9 @@ class GradCAMCLIP(nn.Module):
 
         self._mode = 'train'
         self.set_mode(self.mode)
+
+    def initialize(self, seed: Any):
+        self.prompt_learner.initialize(seed)
 
     def get_logits(self, img: torch.Tensor, pad_info: dict[str, ...]=None) -> Dict:
         # * 获取文本特征。

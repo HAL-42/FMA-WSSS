@@ -102,6 +102,8 @@ def model_cal(m, inp):  # noqa
     return m(inp.img, inp.fg_cls_lb, pad_info=inp.pad_info if inp.pad_info else None)
 model.cal = model_cal  # noqa
 
+model.initialize_seed = IL(lambda c: c.rand_seed)
+
 # * 设定优化器。
 opt = cfg.opt
 opt.get_pg.ini.lr = IL(lambda c: c.opt.base_lr)
@@ -155,6 +157,7 @@ cfg.solver.val_step = IL(lambda c: c.solver.save_step * 3)
 # * 设定测试和验证。
 def model_cfg_train2eval(c):  # noqa
     eval_model_cfg = c.model.branch_copy()
+    del eval_model_cfg['initialize_seed']
     eval_model_cfg.ini.fp32 = True
     eval_model_cfg.ini.adaptive_pos_emb = True
     eval_model_cfg.resume_file = ...

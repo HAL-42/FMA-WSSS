@@ -19,7 +19,7 @@ import warnings
 from collections import defaultdict
 
 import torch
-from alchemy_cat.py_tools import get_local_time_str, gprint, yprint, meow, set_rand_seed
+from alchemy_cat.py_tools import get_local_time_str, gprint, yprint, meow, set_rand_seed, file_md5
 from alchemy_cat.torch_tools import init_env, MovingAverageValueTracker, update_model_state_dict, RNGCacher
 from torch.cuda import amp
 from torch.utils.data import RandomSampler, DataLoader
@@ -125,12 +125,19 @@ inf_train_loader = inf_loader(train_loader)
 model, get_state, get_named_param_groups = cfg.model.cls(**cfg.model.ini)
 cal_model = cfg.model.cal
 
+print(f"以 {cfg.model.initialize_seed} 为随机种子初始化模型。")
+model.initialize(seed=cfg.model.initialize_seed)
+
+gprint(f"{get_local_time_str()}    [开始]: ")
 if osp.isfile(start_model := osp.join(model_save_dir, 'start.pth')):  # 若存在，认为是参考，载入。
+    print(f"    从 {start_model} 载入模型。")
     update_model_state_dict(model, torch.load(start_model, map_location='cpu'), verbosity=3)
 else:
     torch.save(get_state(model), start_model)
-    gprint(f"{get_local_time_str()}    [开始]: ")
     print(f"    将模型保存在{start_model}")
+
+print(f"初始模型的MD5为: \n"
+      f"{file_md5(start_model)}")
 print(model, end="\n\n")
 
 model.set_mode('train')

@@ -8,8 +8,12 @@
 @Software: PyCharm
 @Desc    : 拷贝自coop的trainer。
 """
+from typing import Any
+
 import numpy as np
 import torch
+from alchemy_cat.py_tools import set_torch_rand_seed
+from alchemy_cat.torch_tools import RNGCacher
 from torch import nn
 
 from libs import clip
@@ -91,6 +95,12 @@ class CoOpLearner(nn.Module):
         self.tokenized_prompts = tokenized_prompts  # torch.Tensor
         self.name_lens = name_lens
         self.class_token_position = cls_token_pos
+        self.ctx_std = ctx_std
+
+    def initialize(self, seed: Any):
+        with RNGCacher():
+            set_torch_rand_seed(seed)
+            nn.init.normal_(self.ctx, std=self.ctx_std)
 
     def forward(self):
         ctx = self.ctx  # (M, D) 或 (G, M, D)
