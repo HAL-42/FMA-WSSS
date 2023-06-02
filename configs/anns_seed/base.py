@@ -38,10 +38,18 @@ cfg.seed.dir = ...
 cfg.sam_anns.dir = ...
 
 # * 配置种子生成参数。
-cfg.seed.ini.norm_first = False
-cfg.seed.ini.gather_method = 'mean'
-cfg.seed.ini.bg_method = {'method': 'pow', 'pow': 3}
+cfg.seed.norm_firsts = [True, False]
+cfg.seed.bg_methods = [{'method': 'pow', 'pow': .5},
+                       {'method': 'pow', 'pow': .6},
+                       {'method': 'pow', 'pow': .7},
+                       {'method': 'pow', 'pow': .8},
+                       {'method': 'pow', 'pow': .9},
+                       {'method': 'pow', 'pow': 1},
+                       {'method': 'pow', 'pow': 2},
+                       {'method': 'pow', 'pow': 3}]
+
 cfg.seed.ini.priority = ('level_bigger', 'conf_bigger')
+cfg.seed.ini.gather_method = 'mean'
 cfg.seed.cal = IL(lambda c: partial(seed_anns.gather_norm_bg_argmax, **c.seed.ini))
 
 # * 保存与可视化。

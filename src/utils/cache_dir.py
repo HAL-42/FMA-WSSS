@@ -12,7 +12,6 @@ import os
 import os.path as osp
 import subprocess
 import uuid
-import warnings
 
 from alchemy_cat.py_tools import get_local_time_str
 
@@ -47,7 +46,7 @@ class CacheDir(os.PathLike):
         if self.save_when_exit:
             raise NotImplementedError(f"{type(self)}: dump_when_exit功能尚未实现。")
 
-        self._saved: bool = False
+        self._saved: bool | str = False
 
         self._cache()
 
@@ -76,7 +75,7 @@ class CacheDir(os.PathLike):
     def _cache(self):
         """将save_at下的文件缓存到cache_at下"""
         if self._saved:
-            raise RuntimeError(f"{type(self)}: CacheDir已经save过了，不能再次cache。")
+            raise RuntimeError(f"{type(self)}: CacheDir状态为{self.saved}，不能再次cache。")
 
         # * 新建cache_at。
         os.makedirs(self.cache_at, exist_ok=False)
@@ -92,6 +91,8 @@ class CacheDir(os.PathLike):
                 case 'delete':
                     print(f"{type(self)}: {self.save_at} 已经存在，正在删除...")
                     subprocess.run(['rm', '-r', self.save_at])
+                case _:
+                    raise RuntimeError(f"{type(self)}: 不支持的exist参数。")
 
     def flush(self, size_only: bool=False):
         """将cache_at下的文件同步到save_at下
@@ -100,7 +101,7 @@ class CacheDir(os.PathLike):
             size_only: rsync时，只比较size。
         """
         if self._saved:
-            warnings.warn(f"{type(self)}: CacheDir已经save过了，再次flush无效。")
+            print(f"{type(self)}:  CacheDir状态为{self.saved}，flush无效。")
             return
 
         if self.save_at == '/dev/null':
@@ -117,6 +118,10 @@ class CacheDir(os.PathLike):
         else:
             subprocess.run(['rsync', '-a', '--delete', osp.join(self.cache_at, ''), self.save_at])
 
+    def _rm_cache(self):
+        print(f"{type(self)}: 正在删除 {self.cache_at} ...")
+        subprocess.run(['rm', '-r', self.cache_at])
+
     def save(self, size_only: bool=False, no_flush: bool=False):
         """将cache_at下的文件转移到save_at下
 
@@ -125,18 +130,32 @@ class CacheDir(os.PathLike):
             no_flush: 如果能肯定cache和save已经一致，无需进行flush，可以设置no_flush=True。
         """
         if self._saved:
-            warnings.warn(f"{type(self)}: CacheDir已经save过了，再次save无效。")
+            print(f"{type(self)}: CacheDir状态为{self.saved}，save无效。")
             return
+
+        print(f"{type(self)}: 正在将 {self.cache_at} 同步到 {self.save_at} ...")
 
         # * 进行最后一次同步。
         if not no_flush:
             self.flush(size_only=size_only)
 
         # * 删除cache_at。
-        print(f"{type(self)}: 正在删除 {self.cache_at} ...")
-        subprocess.run(['rm', '-r', self.cache_at])
+        self._rm_cache()
 
-        self._saved = True
+        self._saved = '已保存'
+
+    def terminate(self):
+        """直接退出，删除cache_at。"""
+        if self._saved:
+            print(f"{type(self)}: CacheDir状态为{self.saved}，terminate无效。")
+            return
+
+        print(f"{type(self)}: 正在终止...")
+
+        # * 删除cache_at。
+        self._rm_cache()
+
+        self._saved = '已终止'
 
     def __del__(self):
         if self.save_when_del:

@@ -16,7 +16,7 @@ from ..score import cam2score_cuda, cat_bg_score_cuda, idx2seed_cuda
 
 
 def gather_norm_bg_argmax(anns: SamAnns, cam: torch.Tensor, fg_cls: torch.Tensor,
-                          norm_first: bool,
+                          norm_first: bool | str,
                           gather_method: str,
                           bg_method: dict,
                           priority: str | tuple[str, ...]) -> torch.Tensor:
@@ -34,23 +34,33 @@ def gather_norm_bg_argmax(anns: SamAnns, cam: torch.Tensor, fg_cls: torch.Tensor
     Returns:
         (H, W) 种子点。
     """
-    if norm_first:
-        # * 截0，归一化，计算前景得分。
-        fg_score = cam2score_cuda(cam, dsize=None, resize_first=True)  # (C, 1, S)
-        # 等价形式为：
-        # fg_score = torch.maximum(cam, torch.tensor(0, device=cam.device, dtype=cam.dtype))
+    match norm_first:
+        case True:
+            # * 截0，计算前景得分。
+            fg_score = torch.maximum(cam, torch.tensor(0, device=cam.device, dtype=cam.dtype))  # (C, 1, S)
 
-        # * 收集标注上的前景得分。
-        anns_fg_score = gather_anns(fg_score, anns, keep_2d=True, gather_method=gather_method)  # (C, 1, S)
+            # * 收集标注上的前景得分。
+            anns_fg_score = gather_anns(fg_score, anns, keep_2d=True, gather_method=gather_method)  # (C, 1, S)
 
-        # * 再次归一化。
-        anns_fg_score = cam2score_cuda(anns_fg_score, dsize=None, resize_first=True)  # (C, 1, S)
-    else:
-        # * 收集标注上的CAM响应。
-        anns_cam = gather_anns(cam, anns, keep_2d=True, gather_method=gather_method)  # (C, 1, S)
+            # * 再次归一化。
+            anns_fg_score = cam2score_cuda(anns_fg_score, dsize=None, resize_first=True)  # (C, 1, S)
+        case False:
+            # * 收集标注上的CAM响应。
+            anns_cam = gather_anns(cam, anns, keep_2d=True, gather_method=gather_method)  # (C, 1, S)
 
-        # * 截0，归一化，计算标注前景得分。
-        anns_fg_score = cam2score_cuda(anns_cam, dsize=None, resize_first=True)  # (C, 1, S)
+            # * 截0，归一化，计算标注前景得分。
+            anns_fg_score = cam2score_cuda(anns_cam, dsize=None, resize_first=True)  # (C, 1, S)
+        case 'double_norm':
+            # * 截0，归一化，计算前景得分。
+            fg_score = cam2score_cuda(cam, dsize=None, resize_first=True)  # (C, 1, S)
+
+            # * 收集标注上的前景得分。
+            anns_fg_score = gather_anns(fg_score, anns, keep_2d=True, gather_method=gather_method)  # (C, 1, S)
+
+            # * 再次归一化。
+            anns_fg_score = cam2score_cuda(anns_fg_score, dsize=None, resize_first=True)  # (C, 1, S)
+        case _:
+            raise ValueError(f"norm_first should be bool or 'double_norm', got {norm_first}")
 
     # * 计算标注背景得分。
     anns_score = cat_bg_score_cuda(anns_fg_score, bg_method)  # (C+1, 1, S)
@@ -62,10 +72,10 @@ def gather_norm_bg_argmax(anns: SamAnns, cam: torch.Tensor, fg_cls: torch.Tensor
     anns.add_item('seed', anns_seed[0].tolist())
 
     # * 以得分为标注置信度。
-    # anns_conf = torch.gather(anns_score, dim=0, index=anns_max_idx[None, ...])  # (1, S)，与max效果相同。
-    anns_conf = anns_score[anns_max_idx,
-                           torch.arange(anns_score.shape[1])[:, None],
-                           torch.arange(anns_score.shape[2])[None, :]]  # (1, S)，与max效果相同。
+    anns_conf = torch.gather(anns_score, dim=0, index=anns_max_idx[None, ...])[0]  # (1, S)，与max效果相同。
+    # anns_conf = anns_score[anns_max_idx,
+    #                        torch.arange(anns_score.shape[1])[:, None],
+    #                        torch.arange(anns_score.shape[2])[None, :]]  # (1, S)，与max效果相同。
     anns.add_item('conf', anns_conf[0].tolist())
 
     # * 对标注排序。
