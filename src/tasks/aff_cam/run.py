@@ -104,6 +104,7 @@ if __name__ == '__main__':
         ori_cam = torch.from_numpy(loaded['cam'].astype(np.float32)).to(device)  # PHW
         fg_cls = loaded['fg_cls'].astype(np.uint8)
         fg_logit = loaded['fg_logit'].astype(np.float32)
+        all_logit = loaded['all_logit'].astype(np.float32)
         att = torch.from_numpy(loaded['att'].astype(np.float32)).to(device)  # DHL
 
         # * 优化CAM。
@@ -111,7 +112,7 @@ if __name__ == '__main__':
 
         # * 保存cam_affed。
         np.savez(osp.join(cam_affed_cache_dir, f'{img_id}.npz'),
-                 cam=cam_affed, fg_cls=loaded['fg_cls'], fg_logit=fg_logit)
+                 cam=cam_affed, fg_cls=loaded['fg_cls'], fg_logit=fg_logit, all_logit=all_logit)
 
         # * 如果需要可视化，根据img_id获取原始图像。
         if (cfg.solver.viz_cam or cfg.solver.viz_score) and (idx % cfg.solver.viz_step == 0):
