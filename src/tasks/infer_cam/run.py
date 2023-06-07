@@ -146,9 +146,10 @@ if __name__ == '__main__':
         sample_att = torch.stack(out.att_weights, dim=1).detach().to(torch.float32)  # [样本数xDxLxL]
 
         # * 遍历每张图的id和CAM，保存到文件并可视化之。
-        for img_id, cam, fg_cls, fg_logit, att in zip(inp.img_id,
-                                                      sample_cam, sample_fg_cls, sample_fg_logit, sample_att,
-                                                      strict=True):
+        for img_id, cam, fg_cls, fg_logit, att, all_logit in zip(inp.img_id,
+                                                                 sample_cam, sample_fg_cls, sample_fg_logit,
+                                                                 sample_att, fg_logits,
+                                                                 strict=True):
             # * 将CAM转到原始图像的尺寸上。✖放弃，改为储存原始尺寸的CAM。
             # cam = cv2.resize(cam.transpose(1, 2, 0), (ori_w, ori_h))
             # if cam.ndim == 2:
@@ -160,7 +161,7 @@ if __name__ == '__main__':
             # cam = cam.numpy().astype(np.float16)
 
             # * 保存CAM和有关中间量。
-            saved = dict(cam=cam, fg_cls=fg_cls, fg_logit=fg_logit)
+            saved = dict(cam=cam, fg_cls=fg_cls, fg_logit=fg_logit, all_logit=all_logit)
             if cfg.solver.save_att:
                 att = merge_att(att, cfg.solver.save_att).to(dtype=torch.float16, device='cpu').numpy()  # FP16节省空间。
                 saved['att'] = att

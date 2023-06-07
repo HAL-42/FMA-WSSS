@@ -20,7 +20,7 @@ cfg.rand_seed = 0  # 与随机参考使用相同的随机种子。如此相比�
 
 # * 配置数据集。
 cfg.dt.ini.root = 'datasets'
-cfg.dt.ini.split = 'val'
+cfg.dt.ini.split = 'train_aug'
 cfg.dt.ini.cls_labels_type = 'seg_cls_labels'
 cfg.dt.ini.ps_mask_dir = None
 cfg.dt.ini.rgb_img = True
