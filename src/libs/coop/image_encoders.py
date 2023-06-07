@@ -43,9 +43,7 @@ def scale_pos_emb(pos_emb: torch.Tensor, emb_h: int, emb_w: int,
     # ** 若没有pad，则尺寸相同，不需要scale。
     if (pad_pos is None) and ((emb_h == S) and (emb_w == S)):
         return pos_emb
-    # ** 若有pad，则尺寸相同，且实际没有发生pad，不需要scale。
-    if (pad_pos is not None) and ((emb_h == S) and (emb_w == S)) and ((emb_h == pad_pos[2]) and (emb_w == pad_pos[3])):
-        return pos_emb
+    # ** 若有pad，判断条件太复杂，干脆总是scale。
     patch_pos_emb = patch_pos_emb.permute(1, 0)  # (D, L-1)
     patch_pos_emb = patch_pos_emb.view(1, D, S, S)  # (1, D, S, S)
 

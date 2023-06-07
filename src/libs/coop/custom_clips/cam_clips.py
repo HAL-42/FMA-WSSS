@@ -94,7 +94,7 @@ class GradCAMCLIP(nn.Module):
         gcam_avt = out.gcam_avt  # (L, N, D)
         bt_grad_fg_logits = torch.eye(pos_num,
                                       dtype=pos_logits.dtype, device=pos_logits.device)  # (pos_num, pos_num)
-        torch._C._debug_only_display_vmap_fallback_warnings(True)  # batch grad的警告。
+        # torch._C._debug_only_display_vmap_fallback_warnings(True)  # batch grad的警告。
         grad_gcam_avt = grad(pos_logits, (gcam_avt,), grad_outputs=(bt_grad_fg_logits,),
                              create_graph=(self.mode == 'train'), is_grads_batched=True)[0]  # (pos_num, L, N, D)
 
