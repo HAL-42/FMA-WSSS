@@ -17,8 +17,7 @@ cfg.rslt_dir = ...
 cfg.dt.ini.split = 'train_aug'
 
 # * 配置CAM路径。
-cfg.cam.dir = 'experiment/clip_cam/离线伪真,CI/l1/·125初/ps自cl_loss,5100,csc/bg无类名,头名,s机,M=16/infer/final/' \
-              'aff2次,at_cam,att1次,·5掩阈,ce_npp/cam_affed'
+cfg.cam.dir = 'experiment/clip_cam/离线伪真,CI/l1/·125初/ps自cl_loss,5100,csc/bg无类名,头名,s机,M=16/infer/final/cam'
 
 # * 配置替补种子点路径。
 cfg.seed.dir = 'experiment/clip_cam/离线伪真,CI/l1/·125初/ps自cl_loss,5100,csc/bg无类名,头名,s机,M=16/infer/final/' \
@@ -28,5 +27,9 @@ cfg.seed.dir = 'experiment/clip_cam/离线伪真,CI/l1/·125初/ps自cl_loss,510
 cfg.sam_anns.dir = 'experiment/sam_auto_seg/vh,ta/pattern_key=l2_nmsf_s1_rsw3/anns'
 
 # * 配置种子生成参数。
-cfg.seed.norm_firsts = [True]
-cfg.seed.bg_methods = [{'method': 'pow', 'pow': .7}]
+cfg.seed.norm_firsts = [True, False]
+cfg.seed.bg_methods = [{'method': 'pow', 'pow': .8},
+                       {'method': 'pow', 'pow': .9},
+                       {'method': 'pow', 'pow': 1},
+                       {'method': 'pow', 'pow': 2},
+                       {'method': 'pow', 'pow': 3}]

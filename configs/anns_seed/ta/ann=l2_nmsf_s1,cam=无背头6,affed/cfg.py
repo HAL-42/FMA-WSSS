@@ -25,8 +25,7 @@ cfg.seed.dir = 'experiment/clip_cam/离线伪真,CI/l1/·125初/ps自cl_loss,510
                'aff2次,at_cam,att1次,·5掩阈,ce_npp/seed/best/mask'
 
 # * 配置SAM标注路径。
-cfg.sam_anns.dir = 'experiment/sam_auto_seg/vh,ta/pattern_key=l2_nmsf_s1_rsw3/anns'
+cfg.sam_anns.dir = 'experiment/sam_auto_seg/vh,ta/pattern_key=l2_nmsf_s1/anns'
 
 # * 配置种子生成参数。
 cfg.seed.norm_firsts = [True]
-cfg.seed.bg_methods = [{'method': 'pow', 'pow': .7}]
