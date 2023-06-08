@@ -16,3 +16,9 @@
 [submodule "others/query2labels"]
 	path = others/query2labels
 	url = git@gitee.com:HAL-42/trans-wsss_query2labels.git
+[submodule "others/mmsegmentation"]
+	path = others/mmsegmentation
+	url = git@gitee.com:HAL-42/trans-wsss_mmsegmentation.git
+[submodule "others/WeakTr"]
+	path = others/WeakTr
+	url = https://gitee.com/HAL-42/trans-wsss_-weak-tr.git
