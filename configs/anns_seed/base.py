@@ -30,6 +30,7 @@ cfg.dt.cls = VOCAug2
 
 # * 配置CAM路径。
 cfg.cam.dir = ...
+cfg.cam.loader = None
 
 # * 配置替补种子点路径。
 cfg.seed.dir = ...

@@ -81,6 +81,8 @@ def cat_bg_score_cuda(fg_score: torch.Tensor, bg_method: dict) -> torch.Tensor:
             bg_score = torch.full_like(fg_score[0], thresh)[None, ...]
         case {'method': 'pow', 'pow': p}:
             bg_score = torch.pow(1 - torch.amax(fg_score, dim=0, keepdim=True), p)
+        case {'method': 'no_bg'}:  # 无需添加bg，为兼容性而设。
+            bg_score = torch.empty((0, *fg_score.shape[1:]), device=fg_score.device, dtype=fg_score.dtype)
         case _:
             raise ValueError(f'Unknown bg_method: {bg_method}')
 

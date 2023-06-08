@@ -84,9 +84,14 @@ for norm_first, bg_method in product(cfg.seed.norm_firsts, cfg.seed.bg_methods):
         ori_h, ori_w = img.shape[:2]
 
         # * 读取CAM和前景类别。
-        loaded = np.load(osp.join(cfg.cam.dir, f'{img_id}.npz'))
-        cam = torch.as_tensor(loaded['cam'], dtype=torch.float32, device=device)  # PHW
-        fg_cls = torch.as_tensor(loaded['fg_cls'], dtype=torch.uint8, device=device)  # P
+        if cfg.cam.loader:
+            cam, fg_cls = cfg.cam.loader(cfg.cam.dir, img_id)
+            cam = torch.as_tensor(cam, dtype=torch.float32, device=device)  # PHW
+            fg_cls = torch.as_tensor(fg_cls, dtype=torch.uint8, device=device)  # P
+        else:
+            loaded = np.load(osp.join(cfg.cam.dir, f'{img_id}.npz'))
+            cam = torch.as_tensor(loaded['cam'], dtype=torch.float32, device=device)  # PHW
+            fg_cls = torch.as_tensor(loaded['fg_cls'], dtype=torch.uint8, device=device)  # P
 
         # ** CAM插值到原图大小。
         cam = resize_cam_cuda(cam, (ori_h, ori_w))
@@ -176,8 +181,6 @@ for norm_first, bg_method in product(cfg.seed.norm_firsts, cfg.seed.bg_methods):
 # * 找到最优结果并保存。
 max_rslt = max(results, key=lambda x: x.metric.mIoU)
 
-print(f'最优参数设定为：norm_first: {max_rslt.params.norm_first}, bg_method: {max_rslt.params.bg_method}，'
-      f'mIoU: {max_rslt.metric.mIoU:.4f}')
 max_rslt.metric.save_metric(eval_dir, importance=0, figsize=(24, 24))
 
 max_rslt.seed_dir.save()
@@ -195,3 +198,5 @@ for rslt in results:
 for rslt in results:
     print(f'参数设定为：norm_first: {rslt.params.norm_first}, bg_method: {rslt.params.bg_method}，'
           f'mIoU: {rslt.metric.mIoU:.4f}')
+print(f'最优参数设定为：norm_first: {max_rslt.params.norm_first}, bg_method: {max_rslt.params.bg_method}，'
+      f'mIoU: {max_rslt.metric.mIoU:.4f}')

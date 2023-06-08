@@ -59,6 +59,9 @@ def gather_norm_bg_argmax(anns: SamAnns, cam: torch.Tensor, fg_cls: torch.Tensor
 
             # * 再次归一化。
             anns_fg_score = cam2score_cuda(anns_fg_score, dsize=None, resize_first=True)  # (C, 1, S)
+        case 'no_norm':
+            # * 收集标注上的得分。
+            anns_fg_score = gather_anns(cam, anns, keep_2d=True, gather_method=gather_method)  # (C, 1, S)
         case _:
             raise ValueError(f"norm_first should be bool or 'double_norm', got {norm_first}")
 
