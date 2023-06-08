@@ -20,6 +20,6 @@ def voc_inp_to_gcam_clip(inp):
 
 def gcam_clip_out_to_cls_loss(inp, out):
     """获取gcam_clip的输出，处理之，使其适配分类损失。"""
-    fg_num = inp.fg_cls_lb.shape[1]
-    out.fg_logits = out.logits[:, :fg_num]
+    # fg_num = inp.fg_cls_lb.shape[1]
+    out.fg_logits = out.logits[:, :20]
     return out

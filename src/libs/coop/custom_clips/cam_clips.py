@@ -71,13 +71,23 @@ class GradCAMCLIP(nn.Module):
         out.logits = logits
         return out
 
-    def forward(self, img: torch.Tensor, fg_cls_lb: torch.Tensor, pad_info: dict[str, ...]=None) -> Dict:
+    def forward(self, img: torch.Tensor, fg_cls_lb: torch.Tensor | dict, pad_info: dict[str, ...]=None) -> Dict:
         # * 前向计算logits。
         out = self.get_logits(img, pad_info=pad_info)
 
         # * 计算softmax后的logits。
         logits = out.logits
-        fg_num = fg_cls_lb.shape[1]
+
+        match fg_cls_lb:
+            case torch.Tensor():
+                fg_num = fg_cls_lb.shape[1]
+            case {'fg_num': fg_num, 'mul_factor': mul_factor, 'thresh': thresh}:
+                fg_cls_lb = ((logits.detach()[:, :fg_num] * mul_factor).softmax(dim=1) > thresh).to(torch.long)
+                out.fg_cls_lb = fg_cls_lb
+            case _:
+                raise RuntimeError(f"fg_cls_lb should be torch.Tensor or (fg_num, mul_factor, thresh), "
+                                   f"but got {type(fg_cls_lb)}")
+
         if self.sm_fg_exist:
             mask = torch.ones_like(logits, dtype=torch.bool)
             mask[:, :fg_num] = fg_cls_lb
