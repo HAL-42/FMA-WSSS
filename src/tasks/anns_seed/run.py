@@ -17,6 +17,7 @@ from itertools import product
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image
 from alchemy_cat.contrib.evaluation.semantics_segmentation import eval_preds
 from alchemy_cat.contrib.voc import label_map2color_map
@@ -85,7 +86,7 @@ for norm_first, bg_method in product(cfg.seed.norm_firsts, cfg.seed.bg_methods):
 
         # * 读取CAM和前景类别。
         if cfg.cam.loader:
-            cam, fg_cls = cfg.cam.loader(cfg.cam.dir, img_id)
+            cam, fg_cls = cfg.cam.loader.cal(cfg.cam.dir, img_id)
             cam = torch.as_tensor(cam, dtype=torch.float32, device=device)  # PHW
             fg_cls = torch.as_tensor(fg_cls, dtype=torch.uint8, device=device)  # P
         else:
@@ -129,7 +130,11 @@ for norm_first, bg_method in product(cfg.seed.norm_firsts, cfg.seed.bg_methods):
             row_num = 4
             col_num = cam.shape[0]
 
-            for col, (c, cls) in enumerate(zip(cam.cpu().numpy(), fg_cls.cpu().numpy())):
+            names = [fg_names[c] for c in fg_cls.cpu().numpy()]
+            if cam.shape[0] == fg_cls.shape[0] + 1:  # 有背景类别。
+                names = ['background'] + names
+
+            for col, (c, name) in enumerate(zip(cam.cpu().numpy(), names, strict=True)):
 
                 # * 图片 + 真值。
                 ax: plt.axes = fig.add_subplot(row_num, col_num, 0 * col_num + col + 1)
@@ -150,7 +155,7 @@ for norm_first, bg_method in product(cfg.seed.norm_firsts, cfg.seed.bg_methods):
                 ax: plt.axes = fig.add_subplot(row_num, col_num, 2 * col_num + col + 1)
                 ax.imshow(img)
                 ax.imshow(c, cmap=plt.get_cmap('jet'), alpha=0.5)
-                ax.set_title(fg_names[cls], fontsize='smaller', color='red', fontweight='bold')
+                ax.set_title(name, fontsize='smaller', color='red', fontweight='bold')
                 ax.axis("off")
 
                 # * seed。

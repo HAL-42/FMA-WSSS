@@ -58,6 +58,12 @@ def cat_bg_score(fg_score: np.ndarray, bg_method: dict) -> np.ndarray:
             bg_score = np.full_like(fg_score[0], thresh)[None, ...]
         case {'method': 'pow', 'pow': p}:
             bg_score = np.power(1 - np.max(fg_score, axis=0, keepdims=True), p)
+        case {'method': 'no_bg'}:  # 无需添加bg，为兼容性而设。
+            bg_score = np.empty((0, *fg_score.shape[1:]), dtype=fg_score.dtype)
+        case {'method': 'alpha_bg', 'alpha': alpha}:  # bg存在，调整bg得分（做alpha变换）。
+            fg_score = fg_score.copy()
+            fg_score[0, ...] = fg_score[0, ...] ** alpha
+            bg_score = np.empty((0, *fg_score.shape[1:]), dtype=fg_score.dtype)
         case _:
             raise ValueError(f'Unknown bg_method: {bg_method}')
 
@@ -82,6 +88,10 @@ def cat_bg_score_cuda(fg_score: torch.Tensor, bg_method: dict) -> torch.Tensor:
         case {'method': 'pow', 'pow': p}:
             bg_score = torch.pow(1 - torch.amax(fg_score, dim=0, keepdim=True), p)
         case {'method': 'no_bg'}:  # 无需添加bg，为兼容性而设。
+            bg_score = torch.empty((0, *fg_score.shape[1:]), device=fg_score.device, dtype=fg_score.dtype)
+        case {'method': 'alpha_bg', 'alpha': alpha}:  # bg存在，调整bg得分（做alpha变换）。
+            fg_score = fg_score.clone()
+            fg_score[0, ...] = fg_score[0, ...] ** alpha
             bg_score = torch.empty((0, *fg_score.shape[1:]), device=fg_score.device, dtype=fg_score.dtype)
         case _:
             raise ValueError(f'Unknown bg_method: {bg_method}')
