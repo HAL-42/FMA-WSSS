@@ -13,8 +13,8 @@ from alchemy_cat.py_tools import Config
 cfg = config = Config()
 
 cfg.seed.norm_firsts = ['no_norm']
-cfg.seed.bg_methods = [{'method': 'alpha_bg', 'alpha': .9},
-                       {'method': 'alpha_bg', 'alpha': 1},
+cfg.seed.bg_methods = [{'method': 'alpha_bg', 'alpha': 1},
                        {'method': 'alpha_bg', 'alpha': 2},
                        {'method': 'alpha_bg', 'alpha': 3},
-                       {'method': 'alpha_bg', 'alpha': 4}]
+                       {'method': 'alpha_bg', 'alpha': 4},
+                       {'method': 'alpha_bg', 'alpha': 5}]

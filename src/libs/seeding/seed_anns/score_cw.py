@@ -62,6 +62,12 @@ def gather_norm_bg_argmax(anns: SamAnns, cam: torch.Tensor, fg_cls: torch.Tensor
         case 'no_norm':
             # * 收集标注上的得分。
             anns_fg_score = gather_anns(cam, anns, keep_2d=True, gather_method=gather_method)  # (C, 1, S)
+        case {'method': 'gamma_softmax', 'gamma': gamma}:
+            # * 得分乘以gamma后，做softmax归一化。
+            fg_score = torch.softmax(cam * gamma, dim=0)  # (C, H, W)
+
+            # * 收集标注上得分。
+            anns_fg_score = gather_anns(fg_score, anns, keep_2d=True, gather_method=gather_method)
         case _:
             raise ValueError(f"norm_first should be bool or 'double_norm', got {norm_first}")
 
