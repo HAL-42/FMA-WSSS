@@ -78,12 +78,24 @@ class GradCAMCLIP(nn.Module):
         # * 计算softmax后的logits。
         logits = out.logits
         fg_num = fg_cls_lb.shape[1]
-        if self.sm_fg_exist:
-            mask = torch.ones_like(logits, dtype=torch.bool)
-            mask[:, :fg_num] = fg_cls_lb
-        else:
-            mask = None
-        out.sm_logits = sm_logits = self.softmax(logits, mask=mask)
+        match self.sm_fg_exist:
+            case True:
+                mask = torch.ones_like(logits, dtype=torch.bool)
+                mask[:, :fg_num] = fg_cls_lb
+                out.sm_logits = sm_logits = self.softmax(logits, mask=mask)
+            case False:
+                mask = None
+                out.sm_logits = sm_logits = self.softmax(logits, mask=mask)
+            case 'fg_only':
+                mask = torch.zeros_like(logits, dtype=torch.bool)
+                mask[:, :fg_num] = fg_cls_lb
+                one_lb_mask = (fg_cls_lb.sum(dim=1) == 1)
+
+                sm_logits = self.softmax(logits, mask=mask)
+                sm_logits[one_lb_mask, :] = logits[one_lb_mask, :]
+                out.sm_logits = sm_logits
+            case _:
+                raise ValueError(f"不支持的sm_fg_exist参数：{self.sm_fg_exist}")
 
         # * 拿出所有正样本的logits。计算正样本logits的数量以及所在样本编号。
         pos_logits = sm_logits[:, :fg_num][fg_cls_lb.to(torch.bool)]  # (pos_num,）取出所有正类logit。
