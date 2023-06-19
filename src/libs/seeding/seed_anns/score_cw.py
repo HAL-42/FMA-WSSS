@@ -19,7 +19,8 @@ def gather_norm_bg_argmax(anns: SamAnns, cam: torch.Tensor, fg_cls: torch.Tensor
                           norm_first: bool | str,
                           gather_method: str,
                           bg_method: dict,
-                          priority: str | tuple[str, ...]) -> torch.Tensor:
+                          priority: str | tuple[str, ...],
+                          ret_seeded_anns: bool=False) -> torch.Tensor | tuple[torch.Tensor, SamAnns]:
     """先收集标注的CAM响应，再在标注间做归一化，计算背景得分，channel维度上argmax后得到种子点。
 
     Args:
@@ -30,6 +31,7 @@ def gather_norm_bg_argmax(anns: SamAnns, cam: torch.Tensor, fg_cls: torch.Tensor
         gather_method: 收集配置。
         bg_method: 背景分计算配置。
         priority: 标注排序优先级。
+        ret_seeded_anns: 是否返回排序后，带有置信度得分和种子的。
 
     Returns:
         (H, W) 种子点。
@@ -73,6 +75,8 @@ def gather_norm_bg_argmax(anns: SamAnns, cam: torch.Tensor, fg_cls: torch.Tensor
 
     # * 计算标注背景得分。
     anns_score = cat_bg_score_cuda(anns_fg_score, bg_method)  # (C+1, 1, S)
+    if ret_seeded_anns:
+        anns.add_item('score', anns_score[:, 0, :].T)
 
     anns_max_idx = torch.argmax(anns_score, dim=0)  # (1, S)
 
@@ -95,4 +99,7 @@ def gather_norm_bg_argmax(anns: SamAnns, cam: torch.Tensor, fg_cls: torch.Tensor
                                        dtype=anns_seed.dtype, device=anns_seed.device)  # (S,)
     seed = scatter_anns(sorted_anns_seed, sorted_anns, default_vec=0)
 
-    return seed
+    if not ret_seeded_anns:
+        return seed
+    else:
+        return seed, sorted_anns
