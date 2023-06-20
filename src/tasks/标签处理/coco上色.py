@@ -31,7 +31,7 @@ def 上色_label_file(label_file: str):
 
     label = np.array(Image.open(osp.join(args.source, label_file)), dtype=np.uint8)
     color_label = dt.label_map2color_map(label)
-    arr2PIL(color_label).save(osp.join(args.target, label_file))
+    arr2PIL(color_label, order='RGB').save(osp.join(args.target, label_file))
 
 
 def ignore2bg(lb: np.ndarray):
@@ -41,19 +41,22 @@ def ignore2bg(lb: np.ndarray):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--eval', type=int, default=0)
+parser.add_argument('-c', '--colorize', type=int, default=0)
 parser.add_argument('-s', '--source', type=str)
 parser.add_argument('-t', '--target', type=str)
-parser.add_argument('--ts', type=int, default=0)
+parser.add_argument('--label_type', type=str, default='')
+parser.add_argument('--split', type=str, default='train')
 args = parser.parse_args()
 
-os.makedirs(args.target, exist_ok=True)
+dt = COCO('datasets', split=args.split, label_type=args.label_type, cls_labels_type=None)
 
-dt = COCO('datasets')
+if args.colorize:
+    os.makedirs(args.target, exist_ok=True)
 
-with mp.Pool(int(mp.cpu_count() * 0.2)) as p:
-    for _ in tqdm(p.imap_unordered(上色_label_file, os.listdir(args.source), chunksize=10),
-                  dynamic_ncols=True, desc="处理", unit="张"):
-        pass
+    with mp.Pool(int(mp.cpu_count() * 0.2)) as p:
+        for _ in tqdm(p.imap_unordered(上色_label_file, files := os.listdir(args.source), chunksize=10),
+                      dynamic_ncols=True, desc="处理", unit="张", total=len(files)):
+            pass
 
 if args.eval:
     metric = eval_preds(class_num=dt.class_num,

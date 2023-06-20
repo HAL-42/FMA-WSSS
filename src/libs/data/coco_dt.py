@@ -20,7 +20,7 @@ from addict import Dict
 from alchemy_cat.acplot import BGR2RGB, RGB2BGR
 from alchemy_cat.data import Dataset, Subset
 
-__all__ = ['COCO_NAMES', 'COCO_COLOR', 'COCO']
+__all__ = ['COCO_NAMES', 'COCO_COLOR', 'COCO91to81', 'COCO']
 
 
 COCO_NAMES = ['background',
@@ -60,6 +60,26 @@ COCO_COLOR = np.array([(0, 0, 0),
                        (128, 0, 0), (192, 224, 0), (192, 224, 64), (128, 0, 128), (192, 224, 128),
                        (128, 0, 192), (0, 192, 0), (0, 192, 64), (0, 192, 128), (0, 192, 192)], dtype=np.uint8)
 
+COCO91to81 = np.array([0,
+                       1, 2, 3, 4, 5,
+                       6, 7, 8, 9, 10,
+                       11, 0, 12, 13, 14,
+                       15, 16, 17, 18, 19,
+                       20, 21, 22, 23, 24,
+                       0, 25, 26, 0, 0,
+                       27, 28, 29, 30, 31,
+                       32, 33, 34, 35, 36,
+                       37, 38, 39, 40, 0,
+                       41, 42, 43, 44, 45,
+                       46, 47, 48, 49, 50,
+                       51, 52, 53, 54, 55,
+                       56, 57, 58, 59, 60,
+                       0, 61, 0, 0, 62,
+                       0, 63, 64, 65, 66,
+                       67, 68, 69, 70, 71,
+                       72, 73, 0, 74, 75,
+                       76, 77, 78, 79, 80], dtype=np.uint8)
+
 label2color = np.ones((256, 3), dtype=np.uint8) * 255
 label2color[:81, :] = COCO_COLOR
 
@@ -70,10 +90,12 @@ class COCO(Dataset):
     """
     class_names = COCO_NAMES
     class_num = len(class_names)
-    ignore_label = 255
+    ignore_label = 255  # 事实上，COCO真值中不存在ignore。
+    coco91to81 = COCO91to81
 
     def __init__(self, root: str="./contrib/datasets", year="2014", split: str="train", subsplit: str="",
-                 cls_labels_type: str='seg_cls_labels',
+                 label_type: str='',
+                 cls_labels_type: str | None='seg_cls_labels',
                  ps_mask_dir: str=None,
                  rgb_img: bool=True,
                  PIL_read: bool=True):
@@ -89,8 +111,13 @@ class COCO(Dataset):
                 assert subsplit in ['1000', '5000']
         self.subsplit = subsplit
 
+        # * 像素级标签选择。
+        if label_type:
+            assert label_type in ['wt', 'ur']
+        self.label_type = label_type
+
         # * 图像级标签选择。
-        assert cls_labels_type in ('seg_cls_labels', 'det_cls_labels', 'ignore_diff_cls_labels')
+        assert cls_labels_type in ('seg_cls_labels', None)
         self.cls_labels_type = cls_labels_type
 
         # * 记录伪真值目录。
@@ -112,8 +139,13 @@ class COCO(Dataset):
         self._set_files()
 
         # * 读取图像级标签。
-        with open(osp.join(self.root, 'third_party', f'{cls_labels_type}.pkl'), 'rb') as pkl_f:
-            self.id2cls_labels = pickle.load(pkl_f)
+        if self.cls_labels_type is not None:
+            with open(osp.join(self.root, 'third_party',
+                               f'{cls_labels_type}' + (f'_{self.label_type}' if self.label_type else '') + '.pkl'),
+                      'rb') as pkl_f:
+                self.id2cls_labels = pickle.load(pkl_f)
+        else:
+            self.id2cls_labels = None
 
     @classmethod
     def subset(cls,
@@ -137,10 +169,11 @@ class COCO(Dataset):
     def _set_files(self):
         self.root = osp.join(self.root, f'coco{self.year}')
         self.image_dir = osp.join(self.root, 'images', f'{self.split}{self.year}')
-        self.label_dir = osp.join(self.root, 'annotations', f'{self.split}{self.year}')
+        self.label_dir = osp.join(self.root, 'annotations',
+                                  f'{self.split}{self.year}' + (f'_{self.label_type}' if self.label_type else ''))
 
         set_id_file = osp.join(self.root, 'imagesLists',
-                               f'{self.split}' + (f'_{self.subsplit}' if self.subsplit else '')  + '.txt')
+                               f'{self.split}' + (f'_{self.subsplit}' if self.subsplit else '') + '.txt')
         with open(set_id_file, 'r') as f:
             self.image_ids = [id_.rstrip() for id_ in f.readlines()]
 
@@ -174,7 +207,8 @@ class COCO(Dataset):
         # * 构造输出。
         out = ADict()
         out.img_id, out.img = img_id, img
-        out.cls_lb = self.id2cls_labels[img_id]
+        if self.cls_labels_type is not None:
+            out.cls_lb = self.id2cls_labels[img_id]
 
         if self.ps_mask_dir is not None:
             out.lb = np.asarray(Image.open(osp.join(self.ps_mask_dir, f'{img_id}.png')), dtype=np.uint8)
