@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image
 from addict import Dict
 from alchemy_cat.acplot import BGR2RGB
-from alchemy_cat.contrib.voc import VOCAug
+from alchemy_cat.contrib.voc import VOCAug, label_map2color_map
 
 
 class VOCAug2(VOCAug):
@@ -56,3 +56,7 @@ class VOCAug2(VOCAug):
             out.lb = np.asarray(Image.open(osp.join(self.ps_mask_dir, f'{img_id}.png')), dtype=np.uint8)
 
         return out
+
+    @staticmethod
+    def label_map2color_map(label_map: np.ndarray) -> np.ndarray:
+        return label_map2color_map(label_map)
