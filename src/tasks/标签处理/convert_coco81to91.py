@@ -36,5 +36,5 @@ os.makedirs(args.target, exist_ok=True)
 
 for img_id in tqdm(dt.image_ids, dynamic_ncols=True, desc="处理", unit="张"):
     label = np.array(Image.open(osp.join(args.source, f'{img_id}.png')), dtype=np.uint8)
-    converted_lb = COCO.coco91to81[label]
+    converted_lb = COCO.coco81to91[label]
     arr2PIL(converted_lb).save(osp.join(args.target, f'{img_id}.png'))

@@ -20,7 +20,7 @@ from addict import Dict
 from alchemy_cat.acplot import BGR2RGB, RGB2BGR
 from alchemy_cat.data import Dataset, Subset
 
-__all__ = ['COCO_NAMES', 'COCO_COLOR', 'COCO91to81', 'COCO']
+__all__ = ['COCO_NAMES', 'COCO_COLOR', 'COCO91to81', 'COCO81to91', 'COCO']
 
 
 COCO_NAMES = ['background',
@@ -80,6 +80,24 @@ COCO91to81 = np.array([0,
                        72, 73, 0, 74, 75,
                        76, 77, 78, 79, 80], dtype=np.uint8)
 
+COCO81to91 = np.array([0,
+                       1, 2, 3, 4, 5,
+                       6, 7, 8, 9, 10,
+                       11, 13, 14, 15, 16,
+                       17, 18, 19, 20, 21,
+                       22, 23, 24, 25, 27,
+                       28, 31, 32, 33, 34,
+                       35, 36, 37, 38, 39,
+                       40, 41, 42, 43, 44,
+                       46, 47, 48, 49, 50,
+                       51, 52, 53, 54, 55,
+                       56, 57, 58, 59, 60,
+                       61, 62, 63, 64, 65,
+                       67, 70, 72, 73, 74,
+                       75, 76, 77, 78, 79,
+                       80, 81, 82, 84, 85,
+                       86, 87, 88, 89, 90], dtype=np.uint8)
+
 label2color = np.ones((256, 3), dtype=np.uint8) * 255
 label2color[:81, :] = COCO_COLOR
 
@@ -92,6 +110,7 @@ class COCO(Dataset):
     class_num = len(class_names)
     ignore_label = 255  # 事实上，COCO真值中不存在ignore。
     coco91to81 = COCO91to81
+    coco81to91 = COCO81to91
 
     def __init__(self, root: str="./contrib/datasets", year="2014", split: str="train", subsplit: str="",
                  label_type: str='',
@@ -150,12 +169,13 @@ class COCO(Dataset):
     @classmethod
     def subset(cls,
                split_idx_num: tuple[int, int],
-               root: str="./contrib/datasets", year="2014", split: str="train",
-               cls_labels_type: str='seg_cls_labels',
-               ps_mask_dir: str=None,
-               rgb_img: bool=True,
-               PIL_read: bool=True):
-        dt = cls(root, year, split, cls_labels_type, ps_mask_dir, rgb_img, PIL_read)
+               root: str="./contrib/datasets", year="2014", split: str="train", subsplit: str="",
+               label_type: str = '',
+               cls_labels_type: str | None = 'seg_cls_labels',
+               ps_mask_dir: str = None,
+               rgb_img: bool = True,
+               PIL_read: bool = True):
+        dt = cls(root, year, split, subsplit, label_type, cls_labels_type, ps_mask_dir, rgb_img, PIL_read)
 
         split_idx, split_num = split_idx_num
         assert split_idx < split_num

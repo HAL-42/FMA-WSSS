@@ -80,6 +80,16 @@ fig: plt.Figure = plt.figure(dpi=300)
 for idx, inp in tqdm(enumerate(dt), total=len(dt), dynamic_ncols=True, desc='推理', unit='张', miniters=10):
     img_id, img = inp.img_id, inp.img
 
+    if osp.isfile(anns_file := osp.join(ann_save_dir, f'{img_id}.pkl')):
+        try:
+            with open(anns_file, 'rb') as f:
+                _ = pickle.load(f)
+        except Exception as e:
+            rprint(f"[重算] {img_id} 存在但无法加载，重新计算。")
+        else:
+            print(f"[重算] {img_id} 已经存在且可以被正确加载。")
+            continue
+
     try:
         img_anns = mask_generator.generate(img)
     except Exception as e:
@@ -88,7 +98,7 @@ for idx, inp in tqdm(enumerate(dt), total=len(dt), dynamic_ncols=True, desc='推
         continue
 
     # * 保存掩码。
-    with open(osp.join(ann_save_dir, f'{img_id}.pkl'), 'wb') as f:
+    with open(anns_file, 'wb') as f:
         pickle.dump(img_anns, f)
 
     # * 可视化。
