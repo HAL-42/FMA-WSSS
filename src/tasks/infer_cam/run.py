@@ -21,7 +21,7 @@ import numpy as np
 import torch
 from alchemy_cat.acplot import BGR2RGB, col_all
 from alchemy_cat.contrib.tasks.wsss.viz import viz_cam
-from alchemy_cat.py_tools import get_local_time_str
+from alchemy_cat.py_tools import get_local_time_str, rprint
 from alchemy_cat.torch_tools import init_env, update_model_state_dict
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
@@ -47,6 +47,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--show_viz', default=0, type=int)
     parser.add_argument('-e', '--eval_only', default=0, type=int)
     parser.add_argument('-P', '--pool_size', default=0, type=int)
+    parser.add_argument('--no_cache', default=0, type=int)
     args = parser.parse_args()
 
     # * 初始化环境。
@@ -66,12 +67,16 @@ if __name__ == '__main__':
     print(f"{matplotlib.get_backend()=}")
 
     # * 配置路径。
-    os.makedirs(cam_cache_dir := osp.join('/tmp',
-                                          'infer_cam',
-                                          f'{uuid.uuid4().hex}@{get_local_time_str(for_file_name=True)}'),
-                exist_ok=False)  # 总是暂存/长存CAM。不存（只viz）不大可能。
     if cfg.solver.save_cam:
         cam_save_dir = osp.join(cfg.rslt_dir, 'cam')
+    if args.no_cache:
+        assert cfg.solver.save_cam
+        os.symlink('./cam', cam_cache_dir := cam_save_dir + '_link', target_is_directory=True)
+    else:
+        os.makedirs(cam_cache_dir := osp.join('/tmp',
+                                              'infer_cam',
+                                              f'{uuid.uuid4().hex}@{get_local_time_str(for_file_name=True)}'),
+                    exist_ok=False)  # 总是暂存/长存CAM。不存（只viz）不大可能。
     if cfg.solver.viz_cam:
         os.makedirs(cam_viz_dir := osp.join(cfg.rslt_dir, 'viz', 'cam'), exist_ok=True)
     if cfg.solver.viz_score:
@@ -124,6 +129,19 @@ if __name__ == '__main__':
     idx = 0  # 用于计数推理了多少张图。
 
     for inp in tqdm(val_loader, dynamic_ncols=True, desc='推理', unit='批次', miniters=10):
+        # * 跳过已有（只对bt=1有效）。
+        if len(inp.img_id) == 1:
+            id_ = inp.img_id[0]
+            if osp.isfile(cam_file := osp.join(cam_cache_dir, f'{id_}.npz')):
+                try:
+                    _ = np.load(cam_file, allow_pickle=True)
+                except Exception as e:
+                    rprint(f"[重算] {id_} 存在但无法加载，重新计算。")
+                else:
+                    print(f"[重算] {id_} 已经存在且可以被正确加载。")
+                    idx += 1
+                    continue
+
         # * 获取新一个批次数据。
         inp = cfg.io.update_inp(inp)
 
@@ -224,9 +242,10 @@ if __name__ == '__main__':
 
     # * 如果需要保存CAM，则将暂存的cam_affed拷贝到保存目录。
     if cfg.solver.save_cam:
-        if osp.isdir(cam_save_dir):
+        if osp.isdir(cam_save_dir) and (not args.no_cache):
             subprocess.run(['rm', '-r', cam_save_dir])
-        subprocess.run(['cp', '-a', cam_cache_dir, cam_save_dir])
+        os.makedirs(cam_save_dir, exist_ok=True)
+        subprocess.run(['cp', '-a', osp.join(cam_cache_dir, '.'), cam_save_dir])
 
     # * 如果只需要eval，此时即可eval并退出。
     if cfg.eval.enabled:

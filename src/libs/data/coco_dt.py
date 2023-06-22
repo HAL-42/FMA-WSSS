@@ -116,7 +116,7 @@ class COCO(Dataset):
                  label_type: str='',
                  cls_labels_type: str | None='seg_cls_labels',
                  ps_mask_dir: str=None,
-                 rgb_img: bool=True,
+                 rgb_img: bool=False,
                  PIL_read: bool=True):
         # * 记录路径参数。
         self.root = root
@@ -173,7 +173,7 @@ class COCO(Dataset):
                label_type: str = '',
                cls_labels_type: str | None = 'seg_cls_labels',
                ps_mask_dir: str = None,
-               rgb_img: bool = True,
+               rgb_img: bool = False,
                PIL_read: bool = True):
         dt = cls(root, year, split, subsplit, label_type, cls_labels_type, ps_mask_dir, rgb_img, PIL_read)
 
