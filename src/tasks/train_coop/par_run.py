@@ -40,6 +40,7 @@ class TrainCoOp(Cfg2TuneRunner):
             subprocess.run([sys.executable, 'src/tasks/train_coop/run.py',
                             '-i', f'{args.infer_only}',
                             '-e', f'{args.eval_only}',
+                            '--no_cache', f'{args.no_cache}',
                             '-c', cfg_pkl],
                            check=False, env=env_with_current_cuda)
 
@@ -54,6 +55,7 @@ parser.add_argument('--purge', default=0, type=int)
 parser.add_argument('-c', '--config', type=str)
 parser.add_argument("-i", '--infer_only', default=0, type=int)
 parser.add_argument("-e", '--eval_only', default=0, type=int)
+parser.add_argument('--no_cache', default=0, type=int)
 args = parser.parse_args()
 
 runner = TrainCoOp(args.config,

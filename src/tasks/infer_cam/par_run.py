@@ -39,6 +39,7 @@ class InferCAM(Cfg2TuneRunner):
             subprocess.run([sys.executable, 'src/tasks/infer_cam/run.py',
                             '-e', str(args.eval_only),
                             '-P', str(args.pool_size),
+                            '--no_cache', str(args.no_cache),
                             '-c', cfg_pkl],
                            check=False, env=env_with_current_cuda)
 
@@ -53,6 +54,7 @@ parser.add_argument('--purge', default=0, type=int)
 parser.add_argument('-c', '--config', type=str)
 parser.add_argument('-e', '--eval_only', default=0, type=int)
 parser.add_argument('-P', '--pool_size', default=0, type=int)
+parser.add_argument('--no_cache', default=0, type=int)
 args = parser.parse_args()
 
 runner = InferCAM(args.config,

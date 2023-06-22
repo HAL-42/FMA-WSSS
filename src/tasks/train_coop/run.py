@@ -47,6 +47,7 @@ def infer():
         pickle.dump(infer_cfg, pkl_f)
     subprocess.run([sys.executable, 'src/tasks/infer_cam/run.py',
                     '-e', f'{args.eval_only}',
+                    '--no_cache', f'{args.no_cache}',
                     '-c', cfg_pkl], check=False)
     gprint("\n================================ Inference End =================================")
 
@@ -60,6 +61,7 @@ parser.add_argument("-b", '--benchmark', default=0, type=int)
 parser.add_argument("-d", '--is_debug', default=0, type=int)
 parser.add_argument("-i", '--infer_only', default=0, type=int)
 parser.add_argument("-e", '--eval_only', default=0, type=int)
+parser.add_argument('--no_cache', default=0, type=int)
 args = parser.parse_args()
 
 # * 初始化环境。
