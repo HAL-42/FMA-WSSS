@@ -20,7 +20,8 @@ class CacheDir(os.PathLike):
 
     def __init__(self, save_at: str='/dev/null', cache_dir: str='/tmp/cache_dir', exist: str='error',
                  save_when_del: bool=False,
-                 save_when_exit: bool=False):
+                 save_when_exit: bool=False,
+                 enabled: bool=True):
         """将save_at下的文件缓存到cache_at下。
 
         Args:
@@ -29,6 +30,7 @@ class CacheDir(os.PathLike):
             exist: 'error' - 如果save_at已经存在，则报错；'cache': 将save_at转移到cache_at；'delete': 删除save_at。
             save_when_del: 是否在CacheDir被del时dump。
             save_when_exit: 是否在程序退出时dump。
+            enabled: 是否启用CacheDir，如果不启用，初始化后，就处于_saved状态。此时等价于save_at。
         """
         super().__init__()
 
@@ -46,9 +48,13 @@ class CacheDir(os.PathLike):
         if self.save_when_exit:
             raise NotImplementedError(f"{type(self)}: dump_when_exit功能尚未实现。")
 
-        self._saved: bool | str = False
+        self.enabled = enabled
 
-        self._cache()
+        if enabled:
+            self._saved: bool | str = False
+            self._cache()
+        else:
+            self._saved: bool | str = '未启用'
 
     @property
     def saved(self):

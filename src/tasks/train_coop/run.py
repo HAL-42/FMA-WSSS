@@ -15,11 +15,12 @@ import pickle
 import shutil
 import subprocess
 import sys
+import traceback
 import warnings
 from collections import defaultdict
 
 import torch
-from alchemy_cat.py_tools import get_local_time_str, gprint, yprint, meow, set_rand_seed, file_md5
+from alchemy_cat.py_tools import get_local_time_str, gprint, yprint, meow, set_rand_seed, file_md5, rprint
 from alchemy_cat.torch_tools import init_env, MovingAverageValueTracker, update_model_state_dict, RNGCacher
 from torch.cuda import amp
 from torch.utils.data import RandomSampler, DataLoader
@@ -198,34 +199,44 @@ for iteration in tqdm(range(cfg.solver.max_iter), dynamic_ncols=True,
     # * 清除之前的梯度。
     opt.zero_grad(set_to_none=True)
 
+    out_of_memory: bool = False
     for sub_iteration in range(cfg.loader.train.sub_iter_num):  # 遍历所有子迭代。
         # * 获取新一个批次数据。
         inp = next(inf_train_loader)
         inp = cfg.io.update_inp(inp)
 
-        with amp.autocast(enabled=cfg.amp.enabled):
-            # * 前向。
-            out = cal_model(model, inp)
-            out = cfg.io.update_out(inp, out)
+        try:
+            with amp.autocast(enabled=cfg.amp.enabled):
+                # * 前向。
+                out = cal_model(model, inp)
+                out = cfg.io.update_out(inp, out)
 
-            # * 计算损失。
-            losses = cal_loss_items(loss_items, inp, out)
+                # * 计算损失。
+                losses = cal_loss_items(loss_items, inp, out)
 
-        # * 记录损失。
-        for loss_name, loss_val in losses.items():  # 记录没有平均过的子迭代损失，配合扩展后的窗长，可得正确结果。
-            loss_trackers[loss_name].update(loss_val.item())
+            # * 记录损失。
+            for loss_name, loss_val in losses.items():  # 记录没有平均过的子迭代损失，配合扩展后的窗长，可得正确结果。
+                loss_trackers[loss_name].update(loss_val.item())
 
-        # * 后向。
-        scaler.scale(losses['total_loss'] / cfg.loader.train.sub_iter_num).backward()
+            # * 后向。
+            scaler.scale(losses['total_loss'] / cfg.loader.train.sub_iter_num).backward()
+        except RuntimeError as e:
+            if 'CUDA out of memory' in str(e):
+                rprint(f"训练时发生CUDA out of memory，将跳过该批次。")
+                print(traceback.format_exc())
+                out_of_memory = True
+            else:
+                raise e
 
-    # * 步进：优化模型参数，并调整学习率。
-    scaler.step(opt)
+    if not out_of_memory:  # 若没有发生CUDA out of memory，则更新参数。
+        # * 步进：优化模型参数，并调整学习率。
+        scaler.step(opt)
 
-    scale = scaler.get_scale()  # 获取当前缩放因子。
-    scaler.update()
-    if scale > scaler.get_scale():  # 若缩放因子变小，说明此前更新无效。
-        yprint(f"{get_local_time_str()}    [{iteration + 1}/{cfg.solver.max_iter}]: ")
-        print(f"    当前{scale=}导致溢出，该次迭代无效。")
+        scale = scaler.get_scale()  # 获取当前缩放因子。
+        scaler.update()
+        if scale > scaler.get_scale():  # 若缩放因子变小，说明此前更新无效。
+            yprint(f"{get_local_time_str()}    [{iteration + 1}/{cfg.solver.max_iter}]: ")
+            print(f"    当前{scale=}导致溢出，该次迭代无效。")
 
     # * 调整学习率。
     sched.step()

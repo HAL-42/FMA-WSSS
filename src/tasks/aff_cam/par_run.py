@@ -34,12 +34,13 @@ class AffCAM(Cfg2TuneRunner):
             print(f"{eval_metric}存在，跳过{cfg_pkl}。")
         else:
             # * 找到当前应当使用的CUDA设备，并等待当前CUDA设备空闲。
-            _, env_with_current_cuda = allocate_cuda_by_group_rank(pkl_idx, 1, block=True, verbosity=True)
+            _, env_with_current_cuda = allocate_cuda_by_group_rank(pkl_idx, 1, block=False, verbosity=True)
 
             # * 在当前设备上执行训练。
             subprocess.run([sys.executable, 'src/tasks/aff_cam/run.py',
                             '-e', f'{args.eval_only}',
                             '-P', f'{args.pool_size}',
+                            '--cache_ori_cam', f'{args.cache_ori_cam}',
                             '-c', cfg_pkl],
                            check=False, env=env_with_current_cuda)
 
@@ -54,6 +55,7 @@ parser.add_argument('--purge', default=0, type=int)
 parser.add_argument('-c', '--config', type=str)
 parser.add_argument("-e", '--eval_only', default=0, type=int)
 parser.add_argument('-P', '--pool_size', default=0, type=int)
+parser.add_argument('--cache_ori_cam', default=1, type=int)
 args = parser.parse_args()
 
 runner = AffCAM(args.config,

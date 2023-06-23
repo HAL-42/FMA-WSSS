@@ -31,6 +31,7 @@ from tqdm import tqdm
 sys.path = ['.', './src'] + sys.path  # noqa: E402
 
 from libs.seeding.score import cam2score
+from utils.cache_dir import CacheDir
 from utils.eval_cams import search_and_eval
 from utils.resize import resize_cam
 
@@ -44,6 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--show_viz', default=0, type=int)
     parser.add_argument('-e', '--eval_only', default=0, type=int)
     parser.add_argument('-P', '--pool_size', default=0, type=int)
+    parser.add_argument('--cache_ori_cam', default=1, type=int)
     args = parser.parse_args()
 
     # * 初始化环境。
@@ -83,7 +85,8 @@ if __name__ == '__main__':
         exit(0)
 
     # * 将原始CAM文件拷贝到/tmp下。
-    subprocess.run(['cp', '-a', cfg.aff.ori_cam_dir, ori_cam_cache_dir := osp.join('/tmp', uuid.uuid4().hex)])
+    ori_cam_cache_dir = CacheDir(cfg.aff.ori_cam_dir, '/tmp/aff_cam/ori_cam', exist='cache',
+                                 enabled=bool(args.cache_ori_cam))
 
     # * 数据集。
     val_dt = cfg.dt.val.dt
@@ -167,7 +170,7 @@ if __name__ == '__main__':
             fig.savefig(osp.join(score_viz_dir, f'{img_id}.png'), bbox_inches='tight')
 
     # * 删除暂存的ori_cam。
-    subprocess.run(['rm', '-r', ori_cam_cache_dir])
+    ori_cam_cache_dir.terminate()
 
     # * 如果需要保存CAM，则将暂存的cam_affed拷贝到保存目录。
     if cfg.solver.save_cam:
