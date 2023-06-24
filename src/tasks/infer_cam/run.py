@@ -12,16 +12,14 @@ import argparse
 import multiprocessing as mp
 import os
 import os.path as osp
-import subprocess
 import sys
-import uuid
 
 import matplotlib
 import numpy as np
 import torch
 from alchemy_cat.acplot import BGR2RGB, col_all
 from alchemy_cat.contrib.tasks.wsss.viz import viz_cam
-from alchemy_cat.py_tools import get_local_time_str, rprint
+from alchemy_cat.py_tools import rprint
 from alchemy_cat.torch_tools import init_env, update_model_state_dict
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
@@ -29,6 +27,7 @@ from tqdm import tqdm
 
 sys.path = ['.', './src'] + sys.path  # noqa: E402
 
+from utils.cache_dir import CacheDir
 from libs.seeding.score import cam2score
 from libs.seeding.aff.tools import merge_att
 from utils.eval_cams import search_and_eval
@@ -67,16 +66,10 @@ if __name__ == '__main__':
     print(f"{matplotlib.get_backend()=}")
 
     # * 配置路径。
-    if cfg.solver.save_cam:
-        cam_save_dir = osp.join(cfg.rslt_dir, 'cam')
-    if args.no_cache:
-        assert cfg.solver.save_cam
-        os.symlink('./cam', cam_cache_dir := cam_save_dir + '_link', target_is_directory=True)
-    else:
-        os.makedirs(cam_cache_dir := osp.join('/tmp',
-                                              'infer_cam',
-                                              f'{uuid.uuid4().hex}@{get_local_time_str(for_file_name=True)}'),
-                    exist_ok=False)  # 总是暂存/长存CAM。不存（只viz）不大可能。
+    cam_dir = CacheDir(osp.join(cfg.rslt_dir, 'cam'), '/tmp/infer_cam/cam',
+                       exist='delete' if not args.eval_only else 'cache',
+                       enabled=not bool(args.no_cache))
+
     if cfg.solver.viz_cam:
         os.makedirs(cam_viz_dir := osp.join(cfg.rslt_dir, 'viz', 'cam'), exist_ok=True)
     if cfg.solver.viz_score:
@@ -85,9 +78,8 @@ if __name__ == '__main__':
     # * 如果只需要eval，此时即可eval并退出。
     if args.eval_only:
         assert cfg.eval.enabled
-        subprocess.run(['cp', '-a', osp.join(cam_save_dir, '.'), cam_cache_dir])
-        search_and_eval(cfg.dt.val.dt, cam_cache_dir, cfg.eval.seed, cfg.rslt_dir, args.pool_size)
-        subprocess.run(['rm', '-r', cam_cache_dir])
+        search_and_eval(cfg.dt.val.dt, cam_dir.at, cfg.eval.seed, cfg.rslt_dir, args.pool_size)
+        cam_dir.terminate()
         exit(0)
 
     # * 数据集。
@@ -132,7 +124,7 @@ if __name__ == '__main__':
         # * 跳过已有（只对bt=1有效）。
         if len(inp.img_id) == 1:
             id_ = inp.img_id[0]
-            if osp.isfile(cam_file := osp.join(cam_cache_dir, f'{id_}.npz')):
+            if osp.isfile(cam_file := osp.join(cam_dir, f'{id_}.npz')):
                 try:
                     _ = np.load(cam_file, allow_pickle=True)
                 except Exception as e:
@@ -183,7 +175,7 @@ if __name__ == '__main__':
             if cfg.solver.save_att:
                 att = merge_att(att, cfg.solver.save_att).to(dtype=torch.float16, device='cpu').numpy()  # FP16节省空间。
                 saved['att'] = att
-            np.savez(osp.join(cam_cache_dir, f'{img_id}.npz'), **saved)
+            np.savez(osp.join(cam_dir, f'{img_id}.npz'), **saved)
 
             # * 如果需要可视化，根据img_id获取原始图像。
             if (cfg.solver.viz_cam or cfg.solver.viz_score) and (idx % cfg.solver.viz_step == 0):
@@ -242,15 +234,12 @@ if __name__ == '__main__':
 
     # * 如果需要保存CAM，则将暂存的cam_affed拷贝到保存目录。
     if cfg.solver.save_cam:
-        if osp.isdir(cam_save_dir) and (not args.no_cache):
-            subprocess.run(['rm', '-r', cam_save_dir])
-        os.makedirs(cam_save_dir, exist_ok=True)
-        subprocess.run(['cp', '-a', osp.join(cam_cache_dir, '.'), cam_save_dir])
+        cam_dir.flush()
 
     # * 如果只需要eval，此时即可eval并退出。
     if cfg.eval.enabled:
         torch.cuda.empty_cache()
-        search_and_eval(cfg.dt.val.dt, cam_cache_dir, cfg.eval.seed, cfg.rslt_dir, args.pool_size)
+        search_and_eval(cfg.dt.val.dt, cam_dir.at, cfg.eval.seed, cfg.rslt_dir, args.pool_size)
 
     # * 则删除CAM缓存目录。
-    subprocess.run(['rm', '-r', cam_cache_dir])
+    cam_dir.terminate()
