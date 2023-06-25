@@ -18,3 +18,7 @@ cfg.dt.ini.split = 'train'
 
 # * 配置CAM路径。
 cfg.cam.dir = IL(lambda c: osp.join(c.rslt_dir, '..', 'cam'))
+
+cfg.seed.bg_methods = [{'method': 'pow', 'pow': .3},
+                       {'method': 'pow', 'pow': .4},
+                       {'method': 'pow', 'pow': .5}]
