@@ -16,6 +16,8 @@ from PIL import Image
 from addict import Dict
 from alchemy_cat.acplot import BGR2RGB
 from alchemy_cat.contrib.voc import VOCAug, label_map2color_map
+from alchemy_cat.data import Subset
+from math import ceil
 
 
 class VOCAug2(VOCAug):
@@ -56,6 +58,24 @@ class VOCAug2(VOCAug):
             out.lb = np.asarray(Image.open(osp.join(self.ps_mask_dir, f'{img_id}.png')), dtype=np.uint8)
 
         return out
+
+    @classmethod
+    def subset(cls,
+               split_idx_num: tuple[int, int],
+               root: str = "./contrib/datasets", year="2012", split: str = "train",
+               cls_labels_type: str='seg_cls_labels',
+               ps_mask_dir: str=None,
+               rgb_img: bool=False):
+        dt = cls(root, year, split, cls_labels_type, ps_mask_dir, rgb_img)
+
+        split_idx, split_num = split_idx_num
+        assert split_idx < split_num
+
+        step = ceil(len(dt) / split_num)
+        indexes = list(range(split_idx * step, min((split_idx + 1) * step, len(dt))))
+
+        sub_dt = Subset(dt, indexes)
+        return sub_dt
 
     @staticmethod
     def label_map2color_map(label_map: np.ndarray) -> np.ndarray:

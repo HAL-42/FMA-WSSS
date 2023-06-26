@@ -40,6 +40,16 @@ def att_cam(att: torch.Tensor, cam: torch.Tensor,
     # * 获取score。
     score = cam2score_cuda(cam, cam.shape[1:], resize_first=True)  # PHW
 
+    # * aff次数为0时，那就什么都不做。
+    if aff_cfg['n_iters'] == 0:
+        match aff_at:
+            case 'score':
+                return score
+            case 'cam':
+                return cam
+            case _:
+                raise ValueError(f"aff_at must be 'score' or 'cam', but got {aff_at}")
+
     # * 获取affinity。
     aff = att2aff(att, **att2aff_cfg)
 
