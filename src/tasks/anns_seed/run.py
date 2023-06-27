@@ -174,7 +174,7 @@ for norm_first, bg_method in product(cfg.seed.norm_firsts, cfg.seed.bg_methods):
                                       class_names=dt.class_names,
                                       preds_dir=str(seed_dir),
                                       preds_ignore_label=dt.ignore_label,
-                                      gts_dir=dt.label_dir,
+                                      gts_dir=dt.label_dir if dt.split != 'test' else 'datasets/VOC2012/DummyTest',
                                       gts_ignore_label=dt.ignore_label,
                                       result_dir=None,
                                       importance=0,

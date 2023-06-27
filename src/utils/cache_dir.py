@@ -54,6 +54,7 @@ class CacheDir(os.PathLike):
             self._saved: bool | str = False
             self._cache()
         else:
+            os.makedirs(self.save_at, exist_ok=True)
             self._saved: bool | str = '未启用'
 
     @property

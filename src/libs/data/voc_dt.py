@@ -52,7 +52,11 @@ class VOCAug2(VOCAug):
 
         out = Dict()
         out.img_id, out.img, out.lb = img_id, img, lb
-        out.cls_lb = self.id2cls_labels[img_id]
+
+        if self.split != 'test':
+            out.cls_lb = self.id2cls_labels[img_id]
+        else:
+            out.cls_lb = np.zeros((self.class_num,), dtype=np.uint8)
 
         if self.ps_mask_dir is not None:
             out.lb = np.asarray(Image.open(osp.join(self.ps_mask_dir, f'{img_id}.png')), dtype=np.uint8)
