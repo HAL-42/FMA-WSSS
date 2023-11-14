@@ -22,3 +22,6 @@
 [submodule "others/WeakTr"]
 	path = others/WeakTr
 	url = https://gitee.com/HAL-42/trans-wsss_-weak-tr.git
+[submodule "others/automated_ensemble"]
+	path = others/automated_ensemble
+	url = https://gitee.com/HAL-42/automated_ensemble.git
