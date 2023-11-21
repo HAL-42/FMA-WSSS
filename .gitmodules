@@ -25,3 +25,9 @@
 [submodule "others/automated_ensemble"]
 	path = others/automated_ensemble
 	url = https://gitee.com/HAL-42/automated_ensemble.git
+[submodule "others/cond_ddpm_wsss"]
+	path = others/cond_ddpm_wsss
+	url = https://gitee.com/HAL-42/trans-wsss_cond_ddpm_wsss.git
+[submodule "others/WSS-CMER"]
+	path = others/WSS-CMER
+	url = https://gitee.com/HAL-42/trans-wsss_-wss-cmer.git
