@@ -98,7 +98,7 @@ for copy_name, (src, dst) in cfg.rand_ref.rand_copy.items():
         os.makedirs(osp.dirname(dst), exist_ok=True)
         if osp.isfile(dst):
             os.remove(dst)
-        os.link(src, dst)
+        os.symlink(osp.join(os.getcwd(), src), dst)
 print("\n")
 
 # * 数据集。
