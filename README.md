@@ -2,6 +2,10 @@
 
 This repo is a implementation of the [Foundation Model Assisted Weakly Supervised Semantic Segmentation](https://arxiv.org/abs/2312.03585). The code is developed based on the Pytorch framework.
 
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/foundation-model-assisted-weakly-supervised/weakly-supervised-semantic-segmentation-on)](https://paperswithcode.com/sota/weakly-supervised-semantic-segmentation-on?p=foundation-model-assisted-weakly-supervised) \
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/foundation-model-assisted-weakly-supervised/weakly-supervised-semantic-segmentation-on-1)](https://paperswithcode.com/sota/weakly-supervised-semantic-segmentation-on-1?p=foundation-model-assisted-weakly-supervised) \
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/foundation-model-assisted-weakly-supervised/weakly-supervised-semantic-segmentation-on-4)](https://paperswithcode.com/sota/weakly-supervised-semantic-segmentation-on-4?p=foundation-model-assisted-weakly-supervised)
+
 ## Introduction
 
 ![images](docs/overview.png)
@@ -10,30 +14,32 @@ This work aims to leverage pre-trained foundation models, such as contrastive la
 
 ## Requirements
 
-We use [conda-pack](https://conda.github.io/conda-pack/) to share our environment, which can be downloaded at TODO. After downloading the packed environment, run:
+We use [conda-pack](https://conda.github.io/conda-pack/) to share our environment `tw-mm.tar.gz`, which can be downloaded at [HERE](https://pan.baidu.com/s/1jLHxyW5Hwv9YBmusazGGxg?pwd=2333). After downloading the packed environment, run:
 
 ```bash
 # Unpack environment into conda env directory.
 tar -xzf tw-mm.tar.gz -C YOUR_CONDA_ENV_DIR
+
 # Activate the environment.
 conda activate tw-mm
+
 # Install the project-specific segment-anything and mmsegmentation.
 cd PROJECT_ROOT/others
 pip install -e ./segment-anything
 pip install -e ./mmsegmentation
 ```
 
-If `conda-pack` is not available, we also provide the environment spec file at TODO. The package `alchemy_cat` can be download here [HERE](https://github.com/HAL-42/AlchemyCat).
+If `conda-pack` is not available, we also provide the environment spec file `tw-mm.yaml` at [HERE](https://pan.baidu.com/s/1jLHxyW5Hwv9YBmusazGGxg?pwd=2333). The package `alchemy_cat` can be download here [HERE](https://github.com/HAL-42/AlchemyCat).
 
 ## Preparing Project
 
-### code
+### Code
 
-Run `git clone TODO --recurse-submodules` to clone this repo and all its submodules.
+Run `git clone https://github.com/HAL-42/FMA-WSSS.git --recurse-submodules` to clone this repo and all its submodules.
 
-### datasets
+### Datasets
 
-Download and unzip `datasets.tar.gz` from TODO, place it in the root directory, and name it `datasets`.
+Download and unzip `datasets.tar` from [HERE](https://pan.baidu.com/s/1jLHxyW5Hwv9YBmusazGGxg?pwd=2333), place it in the root directory, and name it `datasets`.
 
 The directory structure of `datasets` should be:
 
@@ -74,9 +80,9 @@ datasets
         └── ColorSegmentationClassAugColor
 ```
 
-### pretrains
+### Pretrains
 
-Download and unzip `pretrains.tar.gz` from TODO, place it in the root directory, and name it `pretrains`.
+Download and unzip `pretrains.tar` from [HERE](https://pan.baidu.com/s/1jLHxyW5Hwv9YBmusazGGxg?pwd=2333), place it in the root directory, and name it `pretrains`.
 
 The directory structure of `pretrains` should be:
 
@@ -172,7 +178,7 @@ ln -s ../../experiment/others/mmseg work_dirs
 
 # Train segmentation network with fine seed.
 bash tools/dist_train.sh configs/m2f_psudo/m2f-sl22-bt4-100k-512x-COCO.py 2
-ll
+
 # Evaluate segmentaion network (at the best checkpoint).
 python tools/test.py \
     configs/m2f_psudo/m2f-sl22-bt4-100k-512x-COCO.py \
@@ -185,11 +191,12 @@ python tools/test.py \
 
 ## Results
 
-Download and unzip our experimental results `experiment.tar.gz`  from TODO, **which includes our log, seeds, model weights and inference results.** It is recommended to place it in the root directory, and name it `experiment`.
+Download and unzip our experimental results `experiment.tar` from [HERE](https://pan.baidu.com/s/1jLHxyW5Hwv9YBmusazGGxg?pwd=2333), **which includes our log, seeds, model weights and inference results.** It is recommended to place it in the root directory, and name it `experiment`.
 
 The directory structure of `experiment` should be:
-<details> <summary>[CLICK TO EXPAND] Experiment directory structure. Important seeds, model weights, and inference results are marked by # comments.</summary>
+<details> <summary><font color="#539BF5">[CLICK TO EXPAND]</font></summary>
 <pre><code>
+# Important seeds, model weights, and inference results are marked by # comments.
 .
 ├── COCO
 │   ├── cls
@@ -348,13 +355,13 @@ The directory structure of `experiment` should be:
     │   │           └── level=2
     │   └── stdout
     └── seg
-        ├── checkpoints  # model weights of the COCO segmentation task.
+        ├── checkpoints  # model weights of the VOC segmentation task.
         ├── infer
         │   └── final
         │       ├── affx2,at_cam,attx1,·5thresh
         │       │   ├── ann,affed
         │       │   │   ├── eval
-        │       │   │   ├── seed  # COCO's fine seeds.
+        │       │   │   ├── seed  # VOC's fine seeds.
         │       │   │   ├── stdout
         │       │   │   └── viz
         │       │   │       ├── color_seed
@@ -385,24 +392,27 @@ The directory structure of `experiment` should be:
                 └── stdout
 </code></pre>
 </details>
+
 ### Seed Generation
 | Datasets | mIoU (%) |
 | --- | --- |
 | PASCAL VOC2012 *trainaug* | 73.9 |
 | MS COCO2014 *train* | 47.5 |
-### Segmentation results
-| Datasets | Network | Pretrained | mIoU (%) |
-| --- | --- | --- | --- |
-| PASCAL VOC2012 *val* | Swin-L | ImageNet-21k | 83.1 |
-| MS COCO 2014 *val* | Swin-L | ImageNet-21k | 55.4 |
+### Segmentation
+| Datasets              | Network | Pretrained | mIoU (%)                                                                      |
+|-----------------------| --- | --- |-------------------------------------------------------------------------------|
+| PASCAL VOC2012 *val*  | Swin-L | ImageNet-21k | 83.1                                                                          |
+| PASCAL VOC2012 *test* | Swin-L | ImageNet-21k | 81.6 <sup>[[3]](http://host.robots.ox.ac.uk:8080/anonymous/PKEHGZ.html)</sup> |
+| MS COCO 2014 *val*    | Swin-L | ImageNet-21k | 55.4                                                                          |
 
-*Please note that：*
-*1.Our reproduction results on PASCAL VOC 2012 are slightly different to the paper (<font color=Green>0.3↓</font> in seed mIoU and an <font color=Red>0.5↑</font> in segmentation results).*
-*2.Even if reproduced exactly according to the README, the results may still vary due to GPU type, CUDA and PyTorch versions, as well as inherent randomness of PyTorch.*
+*Please note that：* \
+*1.Our reproduction results on PASCAL VOC 2012 are slightly different to the paper (<font color=Red>0.3↓</font> in seed mIoU and an <font color=Green>0.5↑</font> in segmentation results).* \
+*2.Even if reproduced exactly according to our README, the results may still vary due to GPU type, CUDA and PyTorch versions, as well as inherent randomness of PyTorch.* \
+*3.The result link on PASCAL VOC evaluation server.*
 
 ## Acknowledgement
 
-We borrowed the code from [CLIP-ES](https://github.com/linyq2117/CLIP-ES), [CoOp](https://github.com/KaiyangZhou/CoOp), [mmsegmentation](https://github.com/open-mmlab/mmsegmentation) and [Segment-Anything](githubacebookresearch/segment-anything). Thanks for their wonderful works.
+We borrowed the code from [CLIP-ES](https://github.com/linyq2117/CLIP-ES), [CoOp](https://github.com/KaiyangZhou/CoOp), [mmsegmentation](https://github.com/open-mmlab/mmsegmentation) and [Segment-Anything](https://github.com/facebookresearch/segment-anything.git). Thanks for their wonderful works.
 
 Pay the highest attribute to [AlchemyCat](https://github.com/HAL-42/AlchemyCat), a powerful and user-friendly deep learning toolkit.
 
